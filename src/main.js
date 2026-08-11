@@ -18,6 +18,7 @@ import { createLoop } from "./core/Loop.js";
 import { createPlacement } from "./xr/Placement.js";
 import { createPointer } from "./xr/Pointer.js";
 import { createStage } from "./ui3d/Stage.js";
+import { createGallery } from "./ui3d/Gallery.js";
 import { waitForFonts } from "./ui3d/TextPainter.js";
 import { createEntryScreen } from "./ui2d/EntryScreen.js";
 import { createPreview } from "./preview/PreviewMode.js";
@@ -35,12 +36,27 @@ const scene = new THREE.Scene();
 const xrCamera = new THREE.PerspectiveCamera(62, 1, 0.05, 80);
 
 let stage = null;
+let gallery = null;
 let placement = null;
 let pointer = null;
 let preview = null;
 let xrSession = null;
 let atlas = null;
 let heroPool = null;
+
+/** Where the viewer's head is, in world space. The XR camera during
+ *  a session, the orbit camera in preview — the gallery does not
+ *  need to know which. */
+const _headPos = new THREE.Vector3();
+const _headQuat = new THREE.Quaternion();
+function currentHead() {
+  const camera = renderer.xr.isPresenting
+    ? renderer.xr.getCamera()
+    : preview?.camera ?? xrCamera;
+  camera.getWorldPosition(_headPos);
+  camera.getWorldQuaternion(_headQuat);
+  return { position: _headPos, quaternion: _headQuat };
+}
 
 /* --------------------------------------------------------
    XR entry. The click that reaches here is the only user
@@ -123,29 +139,31 @@ document.getElementById("ov-recenter")?.addEventListener("click", () => {
   // bakes that fallback into a texture that is never repainted.
   stage = createStage({ mediaTexture: atlas.texture });
   scene.add(stage.rig);
+  gallery = createGallery({ stage, heroPool, atlas });
   placement = createPlacement(stage.rig);
 
-  pointer = createPointer(renderer, scene, () => stage.pickables, {
+  pointer = createPointer(renderer, scene, () => gallery.pickables, {
     onHover(object, previous) {
-      stage.slabFor(previous)?.setHovered(false);
-      stage.slabFor(object)?.setHovered(true);
+      stage.nodeFor(previous)?.setHovered(false);
+      stage.nodeFor(object)?.setHovered(true);
     },
     onSelect(object) {
-      const slab = stage.slabFor(object);
-      if (!slab) return;
-      // Phase 4 replaces this with the corridor and focus states.
-      console.log("[select]", slab.kind, slab.key, slab.data?.title ?? "");
+      gallery.select(stage.nodeFor(object), currentHead());
     },
   });
 
   startLoop();
 
-  window.__xr = { renderer, scene, stage, placement, pointer, atlas, heroPool, THREE };
+  window.__xr = {
+    renderer, scene, stage, gallery, placement, pointer, atlas, heroPool, THREE,
+    head: currentHead,
+  };
 
   if (wantsPreview) {
     preview = createPreview(renderer, scene);
     placement.placeForPreview();
-    stage.setEyeHeight(1.6, true);
+    stage.setEyeHeight(1.6);
+    gallery.relayout(true);
     entry.hide();
     wirePreviewInput();
     atlas.start();
@@ -154,7 +172,7 @@ document.getElementById("ov-recenter")?.addEventListener("click", () => {
     // offer a way to draw one frame on demand when verifying.
     window.__xr.renderOnce = (dt = 1 / 60) => {
       preview.update();
-      stage.update(dt);
+      gallery.update(dt);
       renderer.render(scene, preview.camera);
     };
     console.info(
@@ -172,14 +190,17 @@ function startLoop() {
       if (renderer.xr.isPresenting) {
         const refSpace = renderer.xr.getReferenceSpace();
         if (placement.update(frame, refSpace)) {
-          stage.setEyeHeight(placement.headHeight, true);
+          // A 1.5 m and a 1.9 m viewer want different pitch on the
+          // lower rows, so re-seat once the real head height lands.
+          stage.setEyeHeight(placement.headHeight);
+          gallery.relayout(true);
         }
         pointer.updateXR();
-        stage.update(dt);
+        gallery.update(dt);
         renderer.render(scene, xrCamera);
       } else if (preview) {
         preview.update();
-        stage.update(dt);
+        gallery.update(dt);
         renderer.render(scene, preview.camera);
       }
     },

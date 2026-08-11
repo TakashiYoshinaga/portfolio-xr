@@ -169,19 +169,24 @@ export class Slab {
     this.targetQuaternion = new THREE.Quaternion();
     this.targetOpacity = 1;
     this.opacity = 1;
+    this.baseScale = 1;
     this.hovered = false;
     this.visible = true;
   }
 
-  /** Park the slab in a layout slot and treat that as its home. */
-  seat({ position, rotation }, immediate = false) {
+  /** Park the slab in a layout slot and treat that as its home.
+   *  A slot may carry a scale — corridor bays grow with distance so
+   *  each subtends roughly the same angle. */
+  seat({ position, rotation, scale = 1 }, immediate = false) {
     this.homePosition.copy(position);
     this.homeQuaternion.setFromEuler(rotation);
     this.targetPosition.copy(position);
     this.targetQuaternion.copy(this.homeQuaternion);
+    this.baseScale = scale;
     if (immediate) {
       this.group.position.copy(position);
       this.group.quaternion.copy(this.homeQuaternion);
+      this.group.scale.setScalar(scale);
     }
     return this;
   }
@@ -237,7 +242,7 @@ export class Slab {
     this.group.position.lerp(this.targetPosition, k);
     this.group.quaternion.slerp(this.targetQuaternion, k);
 
-    const wantScale = this.hovered ? HOVER_SCALE : 1;
+    const wantScale = this.baseScale * (this.hovered ? HOVER_SCALE : 1);
     const s = this.group.scale.x + (wantScale - this.group.scale.x) * k;
     this.group.scale.setScalar(s);
 

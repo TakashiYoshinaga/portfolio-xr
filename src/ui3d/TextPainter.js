@@ -253,11 +253,49 @@ export function paintLabelAtlas(entries) {
     const y = Math.floor(i / cols) * tileH;
     ctx.save();
     ctx.translate(x, y);
-    paintLabel(ctx, entry, tileW, tileH);
+    if (entry.variant === "chip") paintChip(ctx, entry, tileW, tileH);
+    else paintLabel(ctx, entry, tileW, tileH);
     ctx.restore();
   });
 
   return texture(el);
+}
+
+/** In-world control captions: centred, mono, uppercase. Controls have
+ *  to be 3D because dom-overlay is not granted on Quest hardware. */
+function paintChip(ctx, entry, W, H) {
+  const { title, widthMetres, distance, accent = COLOR.accent } = entry;
+  const pxm = pxPerMetre(W, widthMetres);
+  const size = Math.max(26, sizeForAngle(TITLE_DEG * 0.8, distance, pxm));
+  const pad = Math.round(H * 0.09);
+  const radius = (H - pad * 2) / 2;
+
+  // A filled pill rather than bare floating text — over passthrough,
+  // unbacked glyphs on a busy room read as noise.
+  roundRect(ctx, pad, pad, W - pad * 2, H - pad * 2, radius);
+  ctx.fillStyle = "rgba(10,14,26,0.86)";
+  ctx.fill();
+
+  ctx.globalAlpha = 0.5;
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = Math.max(2, Math.round(H * 0.022));
+  roundRect(ctx, pad, pad, W - pad * 2, H - pad * 2, radius);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  ctx.font = `500 ${size}px ${FONT.mono}`;
+  ctx.letterSpacing = `${Math.round(size * 0.14)}px`;
+  ctx.textAlign = "center";
+  ctx.fillStyle = accent;
+  // Nudge right by half the trailing letter-space so the tracked text
+  // still reads as centred.
+  ctx.fillText(
+    String(title).toUpperCase(),
+    W / 2 + Math.round(size * 0.07),
+    H / 2 + size * 0.36
+  );
+  ctx.textAlign = "left";
+  ctx.letterSpacing = "0px";
 }
 
 function paintLabel(ctx, entry, W, H) {
@@ -427,12 +465,30 @@ export function paintPanel(item, { heroHeightRatio = 0.52 } = {}) {
     ctx.fillText(item.subtitle, pad, y);
   }
 
-  ctx.font = `400 ${TYPE.panel.body}px ${FONT.sans}`;
-  ctx.fillStyle = COLOR.textMuted;
+  // The body gets whatever vertical space is left after the footer is
+  // reserved. Without an explicit budget a long description simply
+  // runs over the footer, which is exactly what it did.
+  const footerHeight = item.footer ? Math.round(TYPE.panel.mono * 2.2) : 0;
+  const bottom = H - pad - footerHeight;
   y += Math.round(TYPE.panel.body * 0.9);
-  const { lines: bodyLines } = wrap(ctx, item.body, W - pad * 2, 5);
+
+  ctx.fillStyle = COLOR.textMuted;
+  let bodySize = TYPE.panel.body;
+  let bodyLines = [];
+  const floor = Math.round(TYPE.panel.body * 0.72);
+  for (; bodySize >= floor; bodySize -= 2) {
+    ctx.font = `400 ${bodySize}px ${FONT.sans}`;
+    const lineHeight = Math.round(bodySize * 1.42);
+    const fits = Math.max(1, Math.floor((bottom - y) / lineHeight));
+    const result = wrap(ctx, item.body, W - pad * 2, fits);
+    bodyLines = result.lines;
+    if (!result.overflowed) break;
+  }
+  ctx.font = `400 ${bodySize}px ${FONT.sans}`;
+  const bodyLineHeight = Math.round(bodySize * 1.42);
   for (const line of bodyLines) {
-    y += Math.round(TYPE.panel.body * 1.45);
+    y += bodyLineHeight;
+    if (y > bottom) break;
     ctx.fillText(line, pad, y);
   }
 
@@ -440,7 +496,11 @@ export function paintPanel(item, { heroHeightRatio = 0.52 } = {}) {
     ctx.font = `500 ${TYPE.panel.mono}px ${FONT.mono}`;
     ctx.letterSpacing = "3px";
     ctx.fillStyle = COLOR.accent2;
-    ctx.fillText(item.footer.toUpperCase(), pad, H - pad);
+    ctx.fillText(
+      truncate(ctx, item.footer.toUpperCase(), W - pad * 2),
+      pad,
+      H - pad
+    );
     ctx.letterSpacing = "0px";
   }
 

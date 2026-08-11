@@ -99,29 +99,52 @@ export const LAYOUT = {
     ],
   },
 
-  /* State 1 — the corridor that grows from an expanded theme */
-  corridor: {
-    x: -0.85,
-    y: 1.35,
-    z: [-1.9, -2.75, -3.6, -4.45],
-    yaw: 70, // degrees, turning each slab toward the centre line
-    headerAngle: -30,
-    headerRadius: 1.3,
-  },
+  /* State 1 — a theme's projects.
 
-  /* State 2 — the focused detail panel */
-  focus: {
-    distance: 1.05,
-    panelWidth: 1.2,
-    panelHeight: 0.85,
-    heroWidth: 0.92,
-    heroHeight: 0.52,
-  },
+     The corridor is the *transition*, not the resting state. Cards
+     rush in from depth and settle into a readable grid where the
+     collapsed themes were.
 
-  tagRail: {
-    y: 0.95,
+     A receding line was tried first and does not work: four cards
+     down one axis each need roughly their own angular width (~20 deg)
+     of separation to avoid occluding one another, which no straight
+     corridor viewed from its mouth can provide. Fanning them wide
+     enough to fix that pushes the far bay past 60 deg off-centre,
+     out of comfortable view. The grid keeps every project legible
+     from a standing position, seated, or on a phone — none of which
+     can rely on the viewer walking. */
+  projects: {
+    angles: [-52, -28],
+    rowY: [1.4, 0.92],
     radius: 1.5,
-    angles: [20, 30, 40, 50],
+    mediaWidth: 0.44,
+    /* How far back cards enter from. This is where the corridor
+       survives: they arrive down the -Z axis rather than fading in. */
+    flyDepth: 3.2,
+    flyScale: 0.35,
+  },
+
+  /* State 2 — the focused detail panel.
+
+     Panel and hero aspect ratios are load-bearing: the panel quad
+     must match TEX.panel's aspect or the painted text stretches, and
+     the hero must be 16:9 or the clip letterboxes itself. */
+  focus: {
+    distance: 1.15,
+    panelWidth: 1.2,
+    panelHeight: 1.2, // square, matching TEX.panel
+    pad: 0.04,
+    heroWidth: 1.12,
+    heroHeight: 0.63, // 16:9
+  },
+
+  /* Filter chips, on their own rail below the prototype bank. They
+     have to clear the bank's bottom row AND the MORE cap, which sits
+     in the grid's unused ninth cell at (46 deg, 0.95). */
+  tagRail: {
+    y: 0.6,
+    radius: 1.55,
+    angles: [10, 22, 34, 46],
   },
 
   /* Dimming levels for the non-focused world */
@@ -144,12 +167,17 @@ export const LAYOUT = {
 export const TEX = {
   /* Sprite-atlas video: 30 tiles in a 6x5 grid */
   atlas: { cols: 6, rows: 5, tileW: 384, tileH: 216, width: 2304, height: 1080 },
-  /* Slab label strips, packed 4 cols x 8 rows = 32 slots (25 slabs
-     plus UI chips). The 512x192 tile is sized so a two-line title at
-     the legible minimum still clears the tag row underneath. */
-  label: { cols: 4, rows: 8, tileW: 512, tileH: 192, width: 2048, height: 1536 },
-  /* The one detail-panel canvas, repainted only on focus change */
-  panel: { width: 2048, height: 1152 },
+  /* Slab label strips, packed 4 cols x 12 rows = 48 slots. The set:
+     3 research themes + 8 research projects + 22 prototypes + 6 UI
+     chips = 39, leaving room to add work without a re-tune. The
+     512x192 tile is sized so a two-line title at the legible minimum
+     still clears the tag row underneath. */
+  label: { cols: 4, rows: 12, tileW: 512, tileH: 192, width: 2048, height: 2304 },
+  /* The one detail-panel canvas, repainted only on focus change.
+     1600 across covers the ~1400 texels a 1.2 m panel needs at
+     1.15 m on Quest 3; going to 2048 would only cost memory. Square,
+     so the panel quad's aspect matches without a second constant. */
+  panel: { width: 1600, height: 1600 },
 };
 
 /* Font sizes in canvas pixels. Floors are set by legibility

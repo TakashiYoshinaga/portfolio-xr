@@ -112,35 +112,48 @@ export function moreCapSlot(eyeY) {
  * content sits beyond arm's reach, and selecting a distant slab
  * glides the user to it rather than making them walk.
  */
-export function corridorSlots(count, eyeY) {
-  const { corridor } = LAYOUT;
+/**
+ * An expanded theme's projects: a 2x2 grid in the space the other two
+ * themes vacate, below the expanded theme's own card.
+ */
+export function projectSlots(count, eyeY) {
+  const { projects } = LAYOUT;
+  const cols = projects.angles.length;
   const slots = [];
   for (let i = 0; i < count; i++) {
-    const z = corridor.z[Math.min(i, corridor.z.length - 1)];
-    const position = new THREE.Vector3(corridor.x, corridor.y, z);
-    // Turned toward the corridor's centre line rather than at the
-    // origin — the user walks (or glides) down it, so a fixed yaw
-    // reads better than one that points back at the entrance.
-    const rotation = new THREE.Euler(
-      -Math.atan2(eyeY - corridor.y, Math.abs(z)) * 0.5,
-      corridor.yaw * DEG,
-      0,
-      "YXZ"
-    );
-    slots.push({ position, rotation, index: i });
+    const row = Math.floor(i / cols);
+    const col = i % cols;
+    slots.push({
+      ...arcSlot(
+        projects.angles[col],
+        projects.radius,
+        projects.rowY[Math.min(row, projects.rowY.length - 1)],
+        eyeY
+      ),
+      index: i,
+    });
   }
   return slots;
 }
 
-/** Where an expanded theme's header parks itself. */
+/**
+ * Where a project card enters from: the same slot, pushed deep down
+ * -Z and shrunk. Letting the slab's own easing pull it forward is
+ * what makes the expansion read as a corridor rushing toward you
+ * rather than cards fading in.
+ */
+export function projectEntrySlot(slot) {
+  const { projects } = LAYOUT;
+  const position = slot.position.clone();
+  position.z -= projects.flyDepth;
+  return { position, rotation: slot.rotation, scale: projects.flyScale };
+}
+
+/** An expanded theme takes the top of its own column and its
+ *  projects fill the space below. */
 export function themeHeaderSlot(eyeY) {
-  const { corridor, research } = LAYOUT;
-  return arcSlot(
-    corridor.headerAngle,
-    corridor.headerRadius,
-    research.rowY[1],
-    eyeY
-  );
+  const { research } = LAYOUT;
+  return arcSlot(research.angle, research.radius, research.rowY[0], eyeY);
 }
 
 /** The four tag chips, below the prototype bank. */

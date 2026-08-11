@@ -1,25 +1,37 @@
 /* =========================================================
    Stage — assembles the gallery inside the rig.
 
-   Owns the slabs, their textures and their arrangement. Knows
-   nothing about XR: it takes a rig Group, lays slabs out with
-   Layout.js, and exposes a list of pickables for whatever Pointer
-   happens to be driving.
+   Owns every slab, chip and texture, and the arrangement maths that
+   places them. Knows nothing about XR: it takes a rig Group, lays
+   things out with Layout.js, and exposes a list of pickables for
+   whatever Pointer happens to be driving.
+
+   The state machine that moves between the console, an expanded
+   theme and a focused item lives in Gallery.js.
    ========================================================= */
 
 import * as THREE from "three";
-import { LAYOUT, slabMetrics } from "../core/Theme.js";
+import { COLOR, LAYOUT, slabMetrics } from "../core/Theme.js";
 import {
   researchSlots,
   hobbySlots,
   moreCapSlot,
+  projectSlots,
+  projectEntrySlot,
+  themeHeaderSlot,
+  tagRailSlots,
   hobbyCapacity,
 } from "./Layout.js";
 import { Slab } from "./Slab.js";
+import { Chip } from "./Chip.js";
 import { cardChromeTexture, paintLabelAtlas } from "./TextPainter.js";
 import { WORKS } from "../../data/works.js";
-import { HOBBY, FEATURED } from "../../data/hobby.js";
+import { HOBBY, FEATURED, TAGS } from "../../data/hobby.js";
 import { TILE_INDEX } from "../../data/atlas.js";
+import { TAG_COLOR } from "../core/Theme.js";
+
+const CHIP_WIDTH = 0.17;
+const CHIP_HEIGHT = 0.064;
 
 export function createStage({ mediaTexture = null } = {}) {
   const rig = new THREE.Group();
@@ -34,10 +46,26 @@ export function createStage({ mediaTexture = null } = {}) {
 
   const researchMetrics = slabMetrics(LAYOUT.research.mediaWidth);
   const hobbyMetrics = slabMetrics(LAYOUT.hobby.mediaWidth);
+  const projectMetrics = slabMetrics(LAYOUT.projects.mediaWidth);
 
-  /* --- one label strip per slab, in slab order -------------
-     Research first, then prototypes, so the index a slab uses to
-     sample the atlas is just its position in this list. */
+  /* Type is sized for the distance a slab is actually viewed from,
+     so the outer ranks stay as readable as the near one. */
+  function rankRadiusFor(index) {
+    let remaining = index;
+    for (const rank of LAYOUT.hobby.ranks) {
+      if (remaining < rank.capacity) return rank.radius;
+      remaining -= rank.capacity;
+    }
+    return LAYOUT.hobby.ranks.at(-1).radius;
+  }
+
+  const projects = WORKS.flatMap((theme) =>
+    theme.projects.map((p) => ({ ...p, themeKey: theme.key }))
+  );
+
+  /* --- label atlas ----------------------------------------
+     One strip per slab and chip, in this exact order. A slab's
+     labelIndex is just its position in this list. */
   const labelEntries = [
     ...WORKS.map((theme) => ({
       title: theme.title,
@@ -46,143 +74,186 @@ export function createStage({ mediaTexture = null } = {}) {
       widthMetres: researchMetrics.labelWidth,
       distance: LAYOUT.research.radius,
     })),
+    ...projects.map((p) => ({
+      title: p.title,
+      eyebrow: p.partner ?? null,
+      widthMetres: projectMetrics.labelWidth,
+      distance: LAYOUT.projects.radius,
+    })),
     ...HOBBY.map((item, i) => ({
       title: item.title,
       tags: item.tags,
       widthMetres: hobbyMetrics.labelWidth,
-      // Type sized for the rank the slab actually sits in, so the
-      // outer ranks stay as readable as the near one.
       distance: rankRadiusFor(i),
+    })),
+    { variant: "chip", title: "+ more", widthMetres: CHIP_WIDTH, distance: 1.6 },
+    { variant: "chip", title: "less", widthMetres: CHIP_WIDTH, distance: 1.6 },
+    ...TAGS.map((tag) => ({
+      variant: "chip",
+      title: tag,
+      accent: TAG_COLOR[tag],
+      widthMetres: CHIP_WIDTH,
+      distance: LAYOUT.tagRail.radius,
     })),
   ];
   const labelTexture = paintLabelAtlas(labelEntries);
 
+  const LABEL_BASE = {
+    themes: 0,
+    projects: WORKS.length,
+    hobby: WORKS.length + projects.length,
+    more: WORKS.length + projects.length + HOBBY.length,
+  };
+  LABEL_BASE.less = LABEL_BASE.more + 1;
+  LABEL_BASE.tags = LABEL_BASE.more + 2;
+
   const researchChrome = cardChromeTexture(
     researchMetrics.width / researchMetrics.height
   );
-  const hobbyChrome = cardChromeTexture(
-    hobbyMetrics.width / hobbyMetrics.height
+  const hobbyChrome = cardChromeTexture(hobbyMetrics.width / hobbyMetrics.height);
+  const projectChrome = cardChromeTexture(
+    projectMetrics.width / projectMetrics.height,
+    { accent: COLOR.accent3 }
   );
 
-  function rankRadiusFor(index) {
-    const { ranks } = LAYOUT.hobby;
-    let remaining = index;
-    for (const rank of ranks) {
-      if (remaining < rank.capacity) return rank.radius;
-      remaining -= rank.capacity;
-    }
-    return ranks[ranks.length - 1].radius;
-  }
+  const shared = { mediaTexture, labelTexture };
 
-  /* --- research theme slabs ------------------------------- */
+  /* --- slabs ----------------------------------------------- */
   const researchSlabs = WORKS.map(
     (theme, i) =>
       new Slab({
+        ...shared,
         key: theme.key,
-        kind: "research",
+        kind: "theme",
         data: theme,
         metrics: researchMetrics,
         tileIndex: TILE_INDEX.get(theme.cover),
-        labelIndex: i,
-        mediaTexture,
-        labelTexture,
+        labelIndex: LABEL_BASE.themes + i,
         chromeTexture: researchChrome,
       })
   );
 
-  /* --- prototype slabs ------------------------------------ */
+  const projectSlabs = projects.map(
+    (project, i) =>
+      new Slab({
+        ...shared,
+        key: project.id,
+        kind: "project",
+        data: project,
+        metrics: projectMetrics,
+        tileIndex: TILE_INDEX.get(project.id),
+        labelIndex: LABEL_BASE.projects + i,
+        chromeTexture: projectChrome,
+      })
+  );
+
   const hobbySlabs = HOBBY.map(
     (item, i) =>
       new Slab({
+        ...shared,
         key: item.id,
         kind: "hobby",
         data: item,
         metrics: hobbyMetrics,
         tileIndex: TILE_INDEX.get(item.id),
-        labelIndex: WORKS.length + i,
-        mediaTexture,
-        labelTexture,
+        labelIndex: LABEL_BASE.hobby + i,
         chromeTexture: hobbyChrome,
       })
   );
 
-  const allSlabs = [...researchSlabs, ...hobbySlabs];
-  for (const slab of allSlabs) rig.add(slab.object3d);
+  /* --- chips ----------------------------------------------- */
+  const moreChip = new Chip({
+    key: "more",
+    action: "more",
+    labelIndex: LABEL_BASE.more,
+    labelIndexAlt: LABEL_BASE.less,
+    labelTexture,
+    width: CHIP_WIDTH,
+    height: CHIP_HEIGHT,
+  });
+
+  const tagChips = TAGS.map(
+    (tag, i) =>
+      new Chip({
+        key: `tag:${tag}`,
+        action: "tag",
+        payload: tag,
+        labelIndex: LABEL_BASE.tags + i,
+        labelTexture,
+        width: CHIP_WIDTH,
+        height: CHIP_HEIGHT,
+        accent: TAG_COLOR[tag],
+      })
+  );
+
+  const chips = [moreChip, ...tagChips];
+  const allSlabs = [...researchSlabs, ...projectSlabs, ...hobbySlabs];
+  const everything = [...allSlabs, ...chips];
+
+  for (const node of everything) rig.add(node.object3d);
 
   let eyeY = 1.6;
-  let hobbyVisible = FEATURED;
-
-  function layout(immediate = false) {
-    researchSlots(eyeY).forEach((slot, i) => {
-      researchSlabs[i].seat(slot, immediate);
-      researchSlabs[i].setVisible(true);
-      researchSlabs[i].setOpacity(1);
-    });
-
-    // Lay out every rank, so hidden slabs still have a home to fly
-    // out to when "+N MORE" reveals them.
-    const slots = hobbySlots(HOBBY.length, eyeY);
-    hobbySlabs.forEach((slab, i) => {
-      slab.seat(slots[i], immediate || i >= hobbyVisible);
-      const shown = i < hobbyVisible;
-      slab.setVisible(shown);
-      slab.setOpacity(shown ? 1 : 0);
-    });
-  }
-
-  layout(true);
 
   return {
     rig,
     researchSlabs,
+    projectSlabs,
     hobbySlabs,
     allSlabs,
+    chips,
+    moreChip,
+    tagChips,
     labelTexture,
 
-    get pickables() {
-      return allSlabs.filter((s) => s.visible).map((s) => s.pickable);
+    get eyeHeight() {
+      return eyeY;
     },
 
-    slabFor(object) {
+    get metrics() {
+      return {
+        research: researchMetrics,
+        hobby: hobbyMetrics,
+        projects: projectMetrics,
+      };
+    },
+
+    get pickables() {
+      return everything.filter((n) => n.visible).map((n) => n.pickable);
+    },
+
+    nodeFor(object) {
       return object?.userData?.slab ?? null;
     },
 
-    /** Swap placeholder media for the real atlas video once it is
-     *  decoding. */
+    projectsOf(themeKey) {
+      return projectSlabs.filter((s) => s.data.themeKey === themeKey);
+    },
+
     setMediaTexture(texture) {
       for (const slab of allSlabs) slab.setMediaTexture(texture);
     },
 
-    /** Re-layout for the measured head height. Called once the first
-     *  XR pose lands, since a 1.5 m and a 1.9 m user want different
-     *  pitch on the lower rows. */
-    setEyeHeight(y, immediate = false) {
+    setEyeHeight(y) {
       eyeY = THREE.MathUtils.clamp(y, 1.1, 2.1);
-      layout(immediate);
     },
 
-    setHobbyVisible(count) {
-      hobbyVisible = THREE.MathUtils.clamp(count, 0, HOBBY.length);
-      layout(false);
-      return hobbyVisible;
+    /* --- slot providers, resolved against the current eye height --- */
+    slots: {
+      research: () => researchSlots(eyeY),
+      hobby: (count) => hobbySlots(count, eyeY),
+      projects: (count) => projectSlots(count, eyeY),
+      projectEntry: projectEntrySlot,
+      themeHeader: () => themeHeaderSlot(eyeY),
+      moreCap: () => moreCapSlot(eyeY),
+      tagRail: () => tagRailSlots(eyeY),
     },
-
-    get hobbyVisibleCount() {
-      return hobbyVisible;
-    },
-
-    get metrics() {
-      return { research: researchMetrics, hobby: hobbyMetrics };
-    },
-
-    moreCapSlot: () => moreCapSlot(eyeY),
 
     update(dt) {
-      for (const slab of allSlabs) slab.update(dt);
+      for (const node of everything) node.update(dt);
     },
 
     dispose() {
-      for (const slab of allSlabs) slab.dispose();
+      for (const node of everything) node.dispose();
       labelTexture.dispose();
     },
   };
