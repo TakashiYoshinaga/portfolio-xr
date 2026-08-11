@@ -80,28 +80,22 @@ export const LAYOUT = {
   research: {
     angle: -40, // one column, left of centre
     radius: 1.55,
-    rowY: [1.92, 1.42, 0.92],
-    width: 0.58,
-    height: 0.4,
-    mediaWidth: 0.56,
-    mediaHeight: 0.315,
+    rowY: [1.96, 1.44, 0.92],
+    mediaWidth: 0.46,
   },
 
   hobby: {
     angles: [8, 27, 46],
-    width: 0.46,
-    height: 0.34,
     mediaWidth: 0.44,
-    mediaHeight: 0.247,
     /* Concentric ranks revealed by "+14 MORE". Each further rank
        sits higher as well as further out, so it clears the rank in
        front instead of hiding behind it. Rank 0 holds 8 items and
        reserves its 9th grid slot for the MORE/LESS cap.
        Capacities sum to 22. */
     ranks: [
-      { radius: 1.6, rowY: [1.86, 1.44, 1.02], capacity: 8 },
-      { radius: 2.5, rowY: [2.25, 1.8, 1.35], capacity: 9 },
-      { radius: 3.4, rowY: [2.6, 2.15, 1.7], capacity: 5 },
+      { radius: 1.6, rowY: [1.95, 1.45, 0.95], capacity: 8 },
+      { radius: 2.5, rowY: [2.35, 1.83, 1.31], capacity: 9 },
+      { radius: 3.4, rowY: [2.7, 2.18, 1.66], capacity: 5 },
     ],
   },
 
@@ -150,8 +144,10 @@ export const LAYOUT = {
 export const TEX = {
   /* Sprite-atlas video: 30 tiles in a 6x5 grid */
   atlas: { cols: 6, rows: 5, tileW: 384, tileH: 216, width: 2304, height: 1080 },
-  /* Slab label strips, packed 4 cols x 8 rows */
-  label: { cols: 4, rows: 8, tileW: 512, tileH: 128, width: 2048, height: 1024 },
+  /* Slab label strips, packed 4 cols x 8 rows = 32 slots (25 slabs
+     plus UI chips). The 512x192 tile is sized so a two-line title at
+     the legible minimum still clears the tag row underneath. */
+  label: { cols: 4, rows: 8, tileW: 512, tileH: 192, width: 2048, height: 1536 },
   /* The one detail-panel canvas, repainted only on focus change */
   panel: { width: 2048, height: 1152 },
 };
@@ -164,6 +160,31 @@ export const TYPE = {
   panel: { title: 88, body: 40, mono: 32 },
   label: { title: 48, tag: 28 },
 };
+
+/**
+ * Every slab dimension follows from one number: how wide its video
+ * is. The label band's aspect is fixed by the label atlas tile, so
+ * deriving the rest here keeps the geometry and the texture from
+ * drifting apart when either is retuned.
+ */
+export function slabMetrics(mediaWidth) {
+  const mediaHeight = (mediaWidth * 9) / 16;
+  const labelAspect = TEX.label.tileW / TEX.label.tileH;
+  const labelWidth = mediaWidth;
+  const labelHeight = labelWidth / labelAspect;
+  const inset = mediaWidth * 0.028;
+  const gap = mediaWidth * 0.016;
+  return {
+    mediaWidth,
+    mediaHeight,
+    labelWidth,
+    labelHeight,
+    inset,
+    gap,
+    width: mediaWidth + inset * 2,
+    height: inset * 2 + mediaHeight + gap + labelHeight,
+  };
+}
 
 export const URLS = {
   site: "https://takashiyoshinaga.github.io/portfolio/",

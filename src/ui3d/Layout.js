@@ -46,8 +46,6 @@ export function researchSlots(eyeY) {
   const { research } = LAYOUT;
   return research.rowY.map((y, i) => ({
     ...arcSlot(research.angle, research.radius, y, eyeY),
-    width: research.width,
-    height: research.height,
     index: i,
   }));
 }
@@ -77,8 +75,6 @@ export function hobbySlots(count, eyeY) {
       const col = i % cols;
       slots.push({
         ...arcSlot(hobby.angles[col], rank.radius, rank.rowY[row], eyeY),
-        width: hobby.width,
-        height: hobby.height,
         index: slots.length,
         rank: rankIndex,
       });
@@ -102,16 +98,12 @@ export function moreCapSlot(eyeY) {
   const rank = hobby.ranks[0];
   const cols = hobby.angles.length;
   const rows = rank.rowY.length;
-  return {
-    ...arcSlot(
-      hobby.angles[cols - 1],
-      rank.radius,
-      rank.rowY[rows - 1],
-      eyeY
-    ),
-    width: hobby.width * 0.86,
-    height: hobby.height * 0.42,
-  };
+  return arcSlot(
+    hobby.angles[cols - 1],
+    rank.radius,
+    rank.rowY[rows - 1],
+    eyeY
+  );
 }
 
 /**
@@ -121,7 +113,7 @@ export function moreCapSlot(eyeY) {
  * glides the user to it rather than making them walk.
  */
 export function corridorSlots(count, eyeY) {
-  const { corridor, research } = LAYOUT;
+  const { corridor } = LAYOUT;
   const slots = [];
   for (let i = 0; i < count; i++) {
     const z = corridor.z[Math.min(i, corridor.z.length - 1)];
@@ -135,13 +127,7 @@ export function corridorSlots(count, eyeY) {
       0,
       "YXZ"
     );
-    slots.push({
-      position,
-      rotation,
-      width: research.width * 1.15,
-      height: research.height * 1.15,
-      index: i,
-    });
+    slots.push({ position, rotation, index: i });
   }
   return slots;
 }
@@ -149,11 +135,12 @@ export function corridorSlots(count, eyeY) {
 /** Where an expanded theme's header parks itself. */
 export function themeHeaderSlot(eyeY) {
   const { corridor, research } = LAYOUT;
-  return {
-    ...arcSlot(corridor.headerAngle, corridor.headerRadius, research.y, eyeY),
-    width: research.width,
-    height: research.height,
-  };
+  return arcSlot(
+    corridor.headerAngle,
+    corridor.headerRadius,
+    research.rowY[1],
+    eyeY
+  );
 }
 
 /** The four tag chips, below the prototype bank. */
@@ -161,8 +148,6 @@ export function tagRailSlots(eyeY) {
   const { tagRail } = LAYOUT;
   return tagRail.angles.map((angle, i) => ({
     ...arcSlot(angle, tagRail.radius, tagRail.y, eyeY),
-    width: 0.15,
-    height: 0.05,
     index: i,
   }));
 }
@@ -174,10 +159,5 @@ export function focusSlot(headPosition, headQuaternion) {
   const position = headPosition.clone().addScaledVector(forward, focus.distance);
   const rotation = new THREE.Euler().setFromQuaternion(headQuaternion, "YXZ");
   rotation.z = 0; // never roll the panel, however the head is tilted
-  return {
-    position,
-    rotation,
-    width: focus.panelWidth,
-    height: focus.panelHeight,
-  };
+  return { position, rotation };
 }
