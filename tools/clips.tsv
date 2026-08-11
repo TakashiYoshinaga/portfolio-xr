@@ -1,0 +1,41 @@
+# Hand-picked in-points for the XR gallery's clips.
+#
+# One row per atlas tile. 'in' is the timecode where that project's
+# highlight starts; it drives BOTH the 8 s atlas loop and the 20 s
+# hero clip, so pick the moment the demo actually reads.
+#
+# Only the 'in' column is meant to be edited. Re-running
+# node tools/manifest.mjs merges new rows in and never touches
+# timecodes you have already set.
+#
+# tile	key	in	kind	title
+00	Dpuc243qCzw	00:00:10	video	Internal Organ Overlay
+01	zI8S49qpiOs	00:00:10	video	HMD Cross-Section Overlay
+02	GY3UlelftKU	00:00:10	video	Remote Instruction
+03	l4UIc49jXsM	00:00:10	video	Dynamic Body Mark
+04	iHlOLLHfhds	00:00:10	video	IMU + SLAM Motion Capture
+05	pULDFD-bDgE	00:00:10	video	Rehabilitation Game
+06	pPT0RLVDzZA	00:00:10	video	Radiation Visualization
+07	chuo-univ	00:00:10	image	Underground Utility AR
+08	57gkK-xGxKQ	00:00:10	video	Snap2VoxelAR
+09	5nlFjTWZSE8	00:00:10	video	Turn Your Memories into 3D Gaussian Splatting
+10	ZE_F2NsOSfQ	00:00:10	video	Project HoloBox
+11	JnxXkK8pQ2Q	00:00:10	video	Reality Portal
+12	aFJR6CnUeqs	00:00:10	video	StickAR
+13	dkM1WFAXtDg	00:00:10	video	Real-World Lighting
+14	525E8wxZyxM	00:00:10	video	Shake-to-Send
+15	j2GieSCbeIg	00:00:10	video	HoloTuberKit
+16	zSK1FuUiQSo	00:00:10	video	Volumetric Telepresence
+17	vZnM_0YjJ24	00:00:10	video	AR Fireworks
+18	YgYVepT3xEs	00:00:10	video	Depth Masked Spray
+19	vnuHLrYknt0	00:00:10	video	Mobile Scan to XR
+20	Jb8YrRuD168	00:00:10	video	Finger Frame Window
+21	kau5hRnEGdI	00:00:10	video	DejaViewer
+22	CICZqMf9QwA	00:00:10	video	Half-Mirror AR
+23	7-Z8c2pjJQc	00:00:10	video	Spatial Clipper
+24	K34p7RwjWt0	00:00:10	video	EMG AR Shooter
+25	brWvzuRAXgU	00:00:10	video	Wall Touch Panel
+26	b02gry-nvyM	00:00:10	video	ChatGPT × AR
+27	8ZfWHPwKC5c	00:00:10	video	Multi-User AR
+28	qXd_yPjMYoU	00:00:10	video	Real-time AR Coloring
+29	KpenTQ6t6-g	00:00:10	video	LiDAR Spatial Sync

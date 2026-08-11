@@ -21,6 +21,8 @@ import { createStage } from "./ui3d/Stage.js";
 import { waitForFonts } from "./ui3d/TextPainter.js";
 import { createEntryScreen } from "./ui2d/EntryScreen.js";
 import { createPreview } from "./preview/PreviewMode.js";
+import { createAtlasMedia } from "./media/AtlasMedia.js";
+import { createVideoPool } from "./media/VideoPool.js";
 
 const canvas = document.getElementById("xr-canvas");
 const overlayRoot = document.getElementById("xr-overlay");
@@ -37,6 +39,8 @@ let placement = null;
 let pointer = null;
 let preview = null;
 let xrSession = null;
+let atlas = null;
+let heroPool = null;
 
 /* --------------------------------------------------------
    XR entry. The click that reaches here is the only user
@@ -44,6 +48,13 @@ let xrSession = null;
    top of this function, before requestSession can eat it.
    -------------------------------------------------------- */
 async function enterXR(mode, setStatus) {
+  // Unlock media FIRST, while user activation from the click is still
+  // live. requestSession can resolve seconds later behind Quest's
+  // spatial-data consent dialog, by which point the activation is
+  // gone and any video opened later would be silently blocked.
+  setStatus("Preparing media…");
+  await Promise.all([heroPool.prime(), atlas.prime()]);
+
   let session;
   try {
     setStatus("Requesting session…");
@@ -66,6 +77,7 @@ async function enterXR(mode, setStatus) {
   entry.hide();
   if (hasDomOverlay(session)) overlayRoot.classList.add("is-active");
 
+  atlas.start(); // upgrades stills to video when frames arrive
   session.addEventListener("end", onSessionEnd, { once: true });
 }
 
@@ -73,6 +85,9 @@ function onSessionEnd() {
   xrSession = null;
   overlayRoot.classList.remove("is-active");
   pointer?.setEnabled(true);
+  // Hero decoders are worth nothing outside a session and holding
+  // them just eats into the ceiling on the next entry.
+  heroPool?.releaseAll();
   entry.show();
   entry.setStatus("");
 }
@@ -93,10 +108,20 @@ document.getElementById("ov-recenter")?.addEventListener("click", () => {
   const wantsPreview = isPreviewRequested();
   const [caps] = await Promise.all([probe(), waitForFonts()]);
 
+  // Stills first, video later: the gallery is fully usable on the
+  // poster atlas alone, so a missing or undecodable atlas.mp4
+  // degrades to a still gallery rather than to black quads.
+  atlas = await createAtlasMedia({
+    onTexture: (texture) => stage?.setMediaTexture(texture),
+  });
+  // One hero decoder in XR; a second on desktop where there is
+  // headroom and no compositor deadline to miss.
+  heroPool = createVideoPool(wantsPreview ? 2 : 1);
+
   // The stage paints its label atlas on construction, so it must come
   // after the fonts resolve — a canvas drawn with a fallback face
   // bakes that fallback into a texture that is never repainted.
-  stage = createStage();
+  stage = createStage({ mediaTexture: atlas.texture });
   scene.add(stage.rig);
   placement = createPlacement(stage.rig);
 
@@ -115,7 +140,7 @@ document.getElementById("ov-recenter")?.addEventListener("click", () => {
 
   startLoop();
 
-  window.__xr = { renderer, scene, stage, placement, pointer, THREE };
+  window.__xr = { renderer, scene, stage, placement, pointer, atlas, heroPool, THREE };
 
   if (wantsPreview) {
     preview = createPreview(renderer, scene);
@@ -123,6 +148,7 @@ document.getElementById("ov-recenter")?.addEventListener("click", () => {
     stage.setEyeHeight(1.6, true);
     entry.hide();
     wirePreviewInput();
+    atlas.start();
     window.__xr.preview = preview;
     // Headless and backgrounded tabs throttle rAF to a standstill, so
     // offer a way to draw one frame on demand when verifying.
@@ -161,11 +187,19 @@ function startLoop() {
       console.warn(
         `[perf] frame time ${avg.toFixed(1)}ms — quality level ${level}`
       );
+      // Level 1 is heavier foveation (handled in Loop). Level 2 gives
+      // up the atlas decode, which is the last big lever available
+      // mid-session — framebuffer scale cannot be changed once
+      // presenting has started.
+      if (level >= 2 && atlas?.pauseToPoster()) {
+        console.warn("[perf] atlas video paused — thumbnails are stills");
+      }
     },
     onRecover(level, avg) {
       console.info(
         `[perf] recovered to ${avg.toFixed(1)}ms — quality level ${level}`
       );
+      if (level < 2) atlas?.resumeVideo();
     },
   });
 }

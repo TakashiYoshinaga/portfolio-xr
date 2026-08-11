@@ -1,0 +1,6 @@
+{
+  "name": "portfolio-xr",
+  "private": true,
+  "type": "module",
+  "description": "Marks .js as ES modules for Node so tools/ can import data/ directly. There are no dependencies, no install step and no build step — the site is served as-is. Do not run npm install; it does nothing."
+}
