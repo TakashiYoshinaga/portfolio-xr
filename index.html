@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>XR Gallery — Takashi Yoshinaga</title>
+  <meta name="description" content="A spatial portfolio of AR research and XR prototypes by Takashi Yoshinaga. Built with WebXR for Meta Quest 3 and WebXR-capable phones.">
+  <link rel="canonical" href="https://takashiyoshinaga.github.io/portfolio-xr/">
+
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="XR Gallery — Takashi Yoshinaga">
+  <meta property="og:description" content="A spatial portfolio of AR research and XR prototypes, in WebXR.">
+  <meta property="og:url" content="https://takashiyoshinaga.github.io/portfolio-xr/">
+
+  <link rel="stylesheet" href="./css/fonts.css">
+  <link rel="stylesheet" href="./css/tokens.css">
+  <link rel="stylesheet" href="./css/ui.css">
+
+  <!-- three.js r185, vendored. Relative paths so the same files work
+       at github.io/portfolio-xr/ and from a local static server.
+       This block must come before any <script type="module">. -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "./vendor/three/build/three.module.min.js",
+      "three/addons/": "./vendor/three/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+
+  <div class="bg-fx" id="bg-fx" aria-hidden="true">
+    <div class="bg-fx__grid"></div>
+    <div class="bg-fx__glow bg-fx__glow--a"></div>
+    <div class="bg-fx__glow bg-fx__glow--b"></div>
+    <div class="bg-fx__glow bg-fx__glow--c"></div>
+  </div>
+
+  <canvas id="xr-canvas"></canvas>
+
+  <!-- Entry screen. The Enter button is the one user gesture the whole
+       media strategy hangs on — video priming happens inside it. -->
+  <main class="entry" id="entry">
+    <div class="entry__inner">
+      <p class="eyebrow"><span class="dot" aria-hidden="true"></span><span>Portfolio ／ XR</span></p>
+
+      <h1 class="entry__title">
+        Step inside<br><span class="grad-text">the work.</span>
+      </h1>
+
+      <p class="entry__lede" id="entry-lede">
+        A spatial edition of my portfolio — AR research and XR prototypes, arranged around you in your own room.
+      </p>
+
+      <ul class="devices" aria-label="Supported devices">
+        <li id="dev-quest">Meta Quest 3</li>
+        <li id="dev-android">Android · WebXR</li>
+      </ul>
+
+      <p class="entry__status" id="entry-status" role="status" aria-live="polite"></p>
+
+      <div class="entry__cta" id="entry-cta"></div>
+
+      <p class="entry__note" id="entry-note"></p>
+    </div>
+  </main>
+
+  <!-- dom-overlay target. Granted on Android; ignored on Quest hardware,
+       so nothing essential may live here. -->
+  <div id="xr-overlay">
+    <div class="overlay__bar">
+      <button type="button" class="overlay__btn" id="ov-recenter">Recenter</button>
+      <button type="button" class="overlay__btn" id="ov-exit">Exit</button>
+    </div>
+  </div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>

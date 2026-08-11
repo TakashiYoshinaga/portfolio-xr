@@ -1,0 +1,36 @@
+/* =========================================================
+   Design tokens — ported verbatim from the 2D portfolio so the
+   two sites read as one system.
+
+   Mirrored in src/core/Theme.js, which the Canvas2D painters use
+   to draw the in-world 3D surfaces. Change both together.
+   ========================================================= */
+
+:root {
+  --bg-0: #05070d;
+  --bg-1: #0a0e1a;
+  --bg-2: #111627;
+  --surface: rgba(255, 255, 255, 0.04);
+  --surface-strong: rgba(255, 255, 255, 0.07);
+  --border: rgba(148, 163, 184, 0.18);
+  --border-strong: rgba(148, 163, 184, 0.28);
+  --text: #e6edf7;
+  --text-muted: #94a3b8;
+  --text-dim: #64748b;
+  --accent: #22d3ee;
+  --accent-2: #60a5fa;
+  --accent-3: #a78bfa;
+  --grad-1: linear-gradient(135deg, #22d3ee 0%, #60a5fa 50%, #a78bfa 100%);
+  --grad-text: linear-gradient(135deg, #22d3ee 0%, #818cf8 60%, #a78bfa 100%);
+  --shadow-glow: 0 10px 40px -10px rgba(34, 211, 238, 0.28);
+  --shadow-card: 0 16px 50px -20px rgba(0, 0, 0, 0.6);
+
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Space Grotesk", "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --radius-xl: 32px;
+}
