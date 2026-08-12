@@ -116,9 +116,16 @@ finished clips in `media/` get committed.
 ### 3. Pick the in-points — the one manual judgement
 
 Edit the `in` column of [`tools/clips.tsv`](tools/clips.tsv). Each row is one
-project; the timecode is where its highlight starts, and it drives both the 8 s
-atlas loop and the 20 s hero clip. Everything defaults to `00:00:10`, so only
-change the ones where the demo reads better elsewhere.
+project; the timecode is where its highlight starts, and it drives both the atlas
+loop and the hero clip (`ATLAS_SECONDS` and `HERO_SECONDS` in `tools/encode.sh`,
+currently 16 s and 40 s). Everything defaults to `00:00:10`, so only change the
+ones where the demo reads better elsewhere.
+
+An in-point that leaves less than the full length before the end of the source is
+pulled back automatically, and the shift is reported — a timecode near the end
+would otherwise yield a fraction-of-a-second clip that loops as a stutter. Where
+the source is simply shorter than `HERO_SECONDS`, the clip is whatever the video
+has.
 
 Re-running `node tools/manifest.mjs` merges in new rows and never overwrites a
 timecode you have already set.
@@ -129,8 +136,12 @@ timecode you have already set.
 tools/encode.sh
 ```
 
-About 110 MB: a 6.5 MB atlas plus 29 hero clips at 1280×720. If it lands over
+About 210 MB: a 12.6 MB atlas plus 29 hero clips at 1280×720. If it lands over
 ~300 MB, shorten `HERO_SECONDS` or raise `-crf` in the script.
+
+Note that a re-encode commits a whole second copy of `media/` into git history,
+which never shrinks and counts toward the 1 GB limit. Prefer settling the lengths
+and in-points before committing.
 
 ### 5. Publish
 

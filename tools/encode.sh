@@ -3,8 +3,8 @@
 # encode — turn the raw downloads into what the gallery ships.
 #
 # Produces:
-#   media/video/atlas.mp4    30 tiles in a 6x5 grid, 8 s, silent
-#   media/video/<key>.mp4    20 s hero clip per project, with audio
+#   media/video/atlas.mp4    30 tiles in a 6x5 grid, silent loop
+#   media/video/<key>.mp4    one hero clip per project, with audio
 #   media/video/prime.mp4    1 s black stub for autoplay priming
 #
 # Why the atlas exists: the gallery animates up to 30 thumbnails at
@@ -13,6 +13,11 @@
 # Android ships no software video decode, so passing the MediaCodec
 # ceiling yields black quads. One atlas video means one decoder for
 # every thumbnail on screen.
+#
+# Lengths are ATLAS_SECONDS and HERO_SECONDS below. An in-point that
+# leaves less than that before the end of the source is pulled back
+# automatically, so a timecode near the end never yields a clip too
+# short to loop.
 #
 # Usage:  tools/encode.sh [--force] [--atlas-only] [--heroes-only]
 # =========================================================
@@ -30,9 +35,9 @@ TILE_W=384
 TILE_H=216
 COLS=6
 ROWS=5
-ATLAS_SECONDS=8
+ATLAS_SECONDS=16
 ATLAS_FPS=24
-HERO_SECONDS=20
+HERO_SECONDS=40
 
 FORCE=""
 DO_ATLAS=1
@@ -53,6 +58,31 @@ mkdir -p "$WORK" "$OUT" "$POSTER"
 
 fresh() { # fresh <output> -> 0 if it needs building
   [[ -n "$FORCE" || ! -f "$1" ]]
+}
+
+# Pull an in-point back if the requested duration would run past the
+# end of the source, and report seconds rather than a timecode.
+#
+# Without this, a hand-picked timecode close to the end yields a
+# fraction-of-a-second clip: ffmpeg simply stops at the end of the
+# file, so the atlas tile becomes a stutter and the hero clip a
+# flash. Shifting the window earlier keeps the intent (that part of
+# the video) and always produces a usable clip.
+#
+#   adjust_in <src> <timecode> <wanted_seconds>  ->  start seconds
+adjust_in() {
+  local src="$1" inp="$2" want="$3" dur start
+  dur=$(ffprobe -v error -show_entries format=duration \
+        -of default=nw=1:nk=1 "$src" 2>/dev/null)
+  start=$(awk -F: '{printf "%.3f", ($1*3600)+($2*60)+$3}' <<<"$inp")
+  if [[ -z "$dur" || "$dur" == "N/A" ]]; then
+    echo "$start"
+    return
+  fi
+  awk -v d="$dur" -v s="$start" -v w="$want" 'BEGIN{
+    max = d - w; if (max < 0) max = 0;
+    printf "%.3f", (s > max ? max : s);
+  }'
 }
 
 # --- 1. per-project outputs ---------------------------------
@@ -88,15 +118,24 @@ while IFS=$'\t' read -r -u 3 tile key inpoint kind title; do
     continue
   fi
 
-  # -- atlas tile: 8 s silent loop --
+  # Each output wants a different length, so each gets its own clamp.
+  atlas_in=$(adjust_in "$src" "$inpoint" "$ATLAS_SECONDS")
+  hero_in=$(adjust_in "$src" "$inpoint" "$HERO_SECONDS")
+  requested=$(awk -F: '{printf "%.3f", ($1*3600)+($2*60)+$3}' <<<"$inpoint")
+  if awk -v a="$atlas_in" -v r="$requested" 'BEGIN{exit !(r - a > 0.5)}'; then
+    printf '  [%s] %s — in-point pulled back to %.1fs; the source ends before %ss from %s\n' \
+      "$tile" "$key" "$atlas_in" "$ATLAS_SECONDS" "$inpoint" >&2
+  fi
+
+  # -- atlas tile: silent loop --
   if [[ "$DO_ATLAS" == 1 ]] && fresh "$tile_out"; then
     echo "  [$tile] $key — tile"
-    ffmpeg -nostdin -y -loglevel error -ss "$inpoint" -t "$ATLAS_SECONDS" -i "$src" \
+    ffmpeg -nostdin -y -loglevel error -ss "$atlas_in" -t "$ATLAS_SECONDS" -i "$src" \
       -vf "scale=${TILE_W}:${TILE_H}:force_original_aspect_ratio=increase,crop=${TILE_W}:${TILE_H},fps=${ATLAS_FPS},setpts=PTS-STARTPTS,format=yuv420p" \
       -an -c:v libx264 -preset veryslow -crf 18 "$tile_out"
   fi
 
-  # -- hero clip: 20 s, 720p, with audio --
+  # -- hero clip: 720p, with audio --
   hero_out="$OUT/$key.mp4"
   if [[ "$DO_HEROES" == 1 ]] && fresh "$hero_out"; then
     echo "  [$tile] $key — hero"
@@ -108,7 +147,7 @@ while IFS=$'\t' read -r -u 3 tile key inpoint kind title; do
     # the detail panel's hero quad is a fixed 16:9, so anything else
     # arrives stretched. Padding keeps the whole frame; cropping to fill
     # would cut the top and bottom off a demo the viewer opened to watch.
-    ffmpeg -nostdin -y -loglevel error -ss "$inpoint" -t "$HERO_SECONDS" -i "$src" \
+    ffmpeg -nostdin -y -loglevel error -ss "$hero_in" -t "$HERO_SECONDS" -i "$src" \
       -vf "scale=1280:720:force_original_aspect_ratio=decrease:flags=lanczos,pad=1280:720:(ow-iw)/2:(oh-ih)/2:color=black,fps=30,format=yuv420p" \
       -c:v libx264 -profile:v high -level:v 4.0 -preset slow -crf 24 \
       -maxrate 3000k -bufsize 6000k -g 60 -keyint_min 60 -sc_threshold 0 \
