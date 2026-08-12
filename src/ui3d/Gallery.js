@@ -64,7 +64,7 @@ export function createGallery({ stage, heroPool, atlas, onRecenter }) {
 
       slab.seat(expanded ? stage.slots.themeHeader() : themeSlots[i], immediate);
       slab.setVisible(!otherExpanded);
-      slab.setOpacity(otherExpanded ? 0 : backdrop);
+      slab.setOpacity(otherExpanded ? 0 : backdrop, immediate);
     });
 
     /* an expanded theme's projects */
@@ -76,7 +76,7 @@ export function createGallery({ stage, heroPool, atlas, onRecenter }) {
       const index = openProjects.indexOf(slab);
       if (index === -1) {
         slab.setVisible(false);
-        slab.setOpacity(0);
+        slab.setOpacity(0, immediate);
         continue;
       }
       // Newly revealed cards are parked deep down -Z first, so the
@@ -87,7 +87,7 @@ export function createGallery({ stage, heroPool, atlas, onRecenter }) {
       }
       slab.seat(slots[index], immediate);
       slab.setVisible(true);
-      slab.setOpacity(backdrop);
+      slab.setOpacity(backdrop, immediate);
     }
 
     /* prototypes */
@@ -100,30 +100,30 @@ export function createGallery({ stage, heroPool, atlas, onRecenter }) {
       slab.seat(hobbySlots[i], immediate || !shown);
       slab.setVisible(shown);
       if (!shown) {
-        slab.setOpacity(0);
+        slab.setOpacity(0, immediate);
         return;
       }
       const dimmed = matchesFilter(slab) ? 1 : LAYOUT.dim.filtered;
-      slab.setOpacity(backdrop * dimmed);
+      slab.setOpacity(backdrop * dimmed, immediate);
     });
 
     /* controls */
     stage.moreChip.seat(stage.slots.moreCap(), immediate);
     stage.moreChip.setAlt(state.hobbyExpanded);
     stage.moreChip.setVisible(true);
-    stage.moreChip.setOpacity(backdrop);
+    stage.moreChip.setOpacity(backdrop, immediate);
 
     const railSlots = stage.slots.tagRail();
     stage.tagChips.forEach((chip, i) => {
       chip.seat(railSlots[i], immediate);
       chip.setActive(state.activeTags.has(chip.payload));
       chip.setVisible(true);
-      chip.setOpacity(backdrop);
+      chip.setOpacity(backdrop, immediate);
     });
 
     stage.recenterChip.seat(stage.slots.recenter(), immediate);
     stage.recenterChip.setVisible(true);
-    stage.recenterChip.setOpacity(backdrop);
+    stage.recenterChip.setOpacity(backdrop, immediate);
 
     ambient.setEyeHeight(stage.eyeHeight);
     ambient.setDimmed(focusing);

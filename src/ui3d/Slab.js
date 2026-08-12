@@ -206,8 +206,13 @@ export class Slab {
     this.hovered = on;
   }
 
-  setOpacity(value) {
+  /** `immediate` snaps rather than eases. Needed on the first layout:
+   *  opacity starts at 1, so without it every hidden slab renders for
+   *  half a second before fading out — a visible flash of the whole
+   *  prototype set on arrival. */
+  setOpacity(value, immediate = false) {
     this.targetOpacity = value;
+    if (immediate) this.opacity = value;
   }
 
   setVisible(on) {
@@ -260,6 +265,10 @@ export class Slab {
     const glowTarget = this.hovered ? 0.5 : 0;
     this.glowMaterial.opacity +=
       (glowTarget * this.opacity - this.glowMaterial.opacity) * k;
+    // A fully transparent quad still costs a draw call and, worse,
+    // still shades every pixel it covers. With 27 slabs on screen
+    // that is a quarter of the frame's draw calls spent on nothing.
+    this.glow.visible = this.glowMaterial.opacity > 0.01;
 
     this.group.visible = this.opacity > 0.01;
     this.hitArea.userData.pickable = this.visible && this.opacity > 0.35;

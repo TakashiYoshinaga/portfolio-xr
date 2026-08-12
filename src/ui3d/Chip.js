@@ -148,8 +148,10 @@ export class Chip {
     this.hovered = on;
   }
 
-  setOpacity(value) {
+  /** `immediate` snaps rather than eases — see Slab.setOpacity. */
+  setOpacity(value, immediate = false) {
     this.targetOpacity = value;
+    if (immediate) this.opacity = value;
   }
 
   setVisible(on) {
@@ -180,6 +182,9 @@ export class Chip {
     const glowTarget = this.hovered ? 0.55 : this.active ? 0.3 : 0;
     this.glowMaterial.opacity +=
       (glowTarget * this.opacity - this.glowMaterial.opacity) * k;
+    // Transparent geometry is not free — skip it entirely when it
+    // would contribute nothing.
+    this.glow.visible = this.glowMaterial.opacity > 0.01;
 
     this.group.visible = this.opacity > 0.01;
     this.hitArea.userData.pickable = this.visible && this.opacity > 0.35;
