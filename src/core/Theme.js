@@ -101,7 +101,9 @@ export const LAYOUT = {
        textures stay exactly as sharp. */
     expanded: {
       angles: [7, 18.5, 30, 41.5],
-      rowY: [2.15, 1.89, 1.63, 1.37, 1.11, 0.85],
+      // Shifted down 0.05 from the natural centring so the top row
+      // clears the section heading at 2.30.
+      rowY: [2.1, 1.84, 1.58, 1.32, 1.06, 0.8],
       scale: 0.6,
     },
   },
@@ -143,6 +145,11 @@ export const LAYOUT = {
     pad: 0.04,
     heroWidth: 1.12,
     heroHeight: 0.63, // 16:9
+    /* Panel centre relative to eye height, fixed regardless of where
+       the viewer was looking. Slightly below eye level so the hero
+       video sits just above the line of sight and the body text just
+       below it. */
+    yOffset: -0.12,
   },
 
   /* Controls sit on a rail below everything else, clear of both the
@@ -151,6 +158,22 @@ export const LAYOUT = {
      is simply invisible in the headset — and entering a session
      facing a wall makes recentering the difference between a usable
      and an unusable experience. */
+  /* Section headings above each bank, so the two categories read as
+     two categories.
+
+     Sat at 2.38 first, high enough to clear the expanded grid without
+     moving anything — and that put them above the resting line of
+     sight, which is the wrong trade for a label you want to catch
+     without deliberately looking up. They now sit just above the
+     collapsed grid (research tops out at 2.192, prototypes at 2.172)
+     and the expanded grid was lowered to fit under them instead. */
+  headings: {
+    y: 2.3,
+    width: 0.44,
+    research: { angle: -40, radius: 1.55 },
+    prototypes: { angle: 27, radius: 1.6 },
+  },
+
   moreCap: {
     angle: 30,
     radius: 1.55,

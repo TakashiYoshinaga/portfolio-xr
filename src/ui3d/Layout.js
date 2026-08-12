@@ -149,12 +149,39 @@ export function recenterSlot(eyeY) {
   return arcSlot(recenter.angle, recenter.radius, recenter.y, eyeY);
 }
 
-/** Dead ahead of the user's current gaze, where a focused item lands. */
-export function focusSlot(headPosition, headQuaternion) {
+/**
+ * Where a focused item opens: in front of whichever way the viewer is
+ * facing, but always upright and always at the same height and
+ * distance, whichever card was selected.
+ *
+ * Yaw is the only thing taken from the head. Keeping pitch — which is
+ * what this did originally — meant looking down at a low card threw
+ * the panel down along that gaze and tilted it to match, so both the
+ * height and the lean changed with every selection.
+ *
+ * Inputs and output are all RIG-local. The panel is a child of the
+ * rig, so a slot derived from a world-space head pose is off by the
+ * rig's own yaw — invisible in preview, where the rig is unrotated,
+ * and wrong in a session, where placement yaws it to the direction
+ * the user happened to be facing on entry.
+ */
+export function focusSlot(headLocalPosition, headLocalForward, eyeY) {
   const { focus } = LAYOUT;
-  const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(headQuaternion);
-  const position = headPosition.clone().addScaledVector(forward, focus.distance);
-  const rotation = new THREE.Euler().setFromQuaternion(headQuaternion, "YXZ");
-  rotation.z = 0; // never roll the panel, however the head is tilted
+
+  const fwd = headLocalForward.clone();
+  fwd.y = 0;
+  if (fwd.lengthSq() < 1e-6) fwd.set(0, 0, -1);
+  fwd.normalize();
+
+  const position = new THREE.Vector3(
+    headLocalPosition.x,
+    0,
+    headLocalPosition.z
+  ).addScaledVector(fwd, focus.distance);
+  position.y = eyeY + focus.yOffset; // independent of where they looked
+
+  // Turn the panel's front face (+Z) back toward the head. X and Z
+  // stay at zero, which is what keeps it upright to the ground.
+  const rotation = new THREE.Euler(0, Math.atan2(-fwd.x, -fwd.z), 0, "YXZ");
   return { position, rotation };
 }

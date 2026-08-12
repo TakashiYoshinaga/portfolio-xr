@@ -14,7 +14,7 @@
 
 import * as THREE from "three";
 import { COLOR, LAYOUT } from "../core/Theme.js";
-import { spinePlateTexture } from "./TextPainter.js";
+import { spinePlateTexture, sectionHeadingTexture } from "./TextPainter.js";
 import { arcSlot } from "./Layout.js";
 
 const SPINE_ANGLE = -16; // the gap between the research and prototype banks
@@ -69,6 +69,36 @@ export function createAmbient() {
     })
   );
   group.add(plate);
+
+  /* --- section headings ----------------------------------- */
+  // Without these the two banks are just cards on the left and cards
+  // on the right, with nothing saying they are different categories.
+  const headings = [
+    { key: "research", title: "Research" },
+    { key: "prototypes", title: "Prototypes" },
+  ].map(({ key, title }) => {
+    const place = LAYOUT.headings[key];
+    const map = sectionHeadingTexture({
+      title,
+      widthMetres: LAYOUT.headings.width,
+      distance: place.radius,
+    });
+    const mesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(
+        LAYOUT.headings.width,
+        LAYOUT.headings.width / 4
+      ),
+      new THREE.MeshBasicMaterial({
+        map,
+        transparent: true,
+        opacity: 0.95,
+        depthWrite: false,
+        toneMapped: false,
+      })
+    );
+    group.add(mesh);
+    return { mesh, map, place };
+  });
 
   /* --- floor ring ----------------------------------------- */
   // Grounds the console in the room. Kept faint: with a 'local'
@@ -138,6 +168,12 @@ export function createAmbient() {
     const plateSlot = arcSlot(SPINE_ANGLE, SPINE_RADIUS, 2.16, eyeY);
     plate.position.copy(plateSlot.position);
     plate.rotation.copy(plateSlot.rotation);
+
+    for (const { mesh, place } of headings) {
+      const slot = arcSlot(place.angle, place.radius, LAYOUT.headings.y, eyeY);
+      mesh.position.copy(slot.position);
+      mesh.rotation.copy(slot.rotation);
+    }
   }
 
   layout();
@@ -156,6 +192,7 @@ export function createAmbient() {
       const scale = on ? LAYOUT.dim.focusBackdrop : 1;
       spine.material.opacity = 0.4 * scale;
       plate.material.opacity = 0.92 * scale;
+      for (const { mesh } of headings) mesh.material.opacity = 0.95 * scale;
       ring.material.opacity = 0.16 * scale;
       motes.material.opacity = 0.5 * scale;
     },
@@ -172,11 +209,12 @@ export function createAmbient() {
     },
 
     dispose() {
-      for (const mesh of [spine, plate, ring, motes]) {
+      for (const mesh of [spine, plate, ring, motes, ...headings.map((h) => h.mesh)]) {
         mesh.geometry.dispose();
         mesh.material.dispose();
       }
       plateTexture.dispose();
+      for (const { map } of headings) map.dispose();
     },
   };
 }

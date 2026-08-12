@@ -475,6 +475,47 @@ export function spinePlateTexture({ name, subtitle, widthMetres, distance }) {
 }
 
 /* ---------------------------------------------------------
+   Section heading — names a bank so the two categories read as
+   two categories.
+
+   Its own texture rather than a label-atlas slot, for the same
+   reason as the spine plate: a wide thin rule is a different shape
+   from every card label, and one small canvas is cheaper than
+   distorting the atlas tile aspect for it.
+   --------------------------------------------------------- */
+
+export function sectionHeadingTexture({ title, widthMetres, distance }) {
+  const W = 512;
+  const H = 128;
+  const { el, ctx } = canvas2d(W, H);
+  const pxm = pxPerMetre(W, widthMetres);
+  const size = Math.max(26, sizeForAngle(1.05, distance, pxm));
+
+  ctx.textAlign = "center";
+  ctx.font = `500 ${size}px ${FONT.mono}`;
+  ctx.letterSpacing = `${Math.round(size * 0.26)}px`;
+  ctx.fillStyle = COLOR.textMuted;
+  // Offset by half the trailing letter-space so the tracked text
+  // still reads as centred.
+  ctx.fillText(String(title).toUpperCase(), W / 2 + size * 0.13, H * 0.5);
+  ctx.letterSpacing = "0px";
+  ctx.textAlign = "left";
+
+  const ruleW = W * 0.62;
+  ctx.fillStyle = linearGradient(
+    ctx,
+    GRADIENT.brand,
+    (W - ruleW) / 2,
+    0,
+    (W + ruleW) / 2,
+    0
+  );
+  ctx.fillRect((W - ruleW) / 2, H * 0.66, ruleW, Math.max(2, H * 0.022));
+
+  return texture(el);
+}
+
+/* ---------------------------------------------------------
    Detail panel — one canvas, repainted only when focus changes.
    --------------------------------------------------------- */
 

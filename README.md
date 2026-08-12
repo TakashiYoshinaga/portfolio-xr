@@ -17,7 +17,8 @@ fits inside Quest 3's field of view, so all of it is readable without turning
 around.
 
 ```
-     RESEARCH (3 themes)            PROTOTYPES (9 of 22)
+      ── RESEARCH ──               ── PROTOTYPES ──
+        (3 themes)                    (9 of 22)
          ┌──────────┐          │    ┌────┐ ┌────┐ ┌────┐
          │ THEME 01 │          │    └────┘ └────┘ └────┘
          └──────────┘          │    ┌────┐ ┌────┐ ┌────┐
@@ -37,6 +38,11 @@ its projects in from depth to settle in the space the other themes vacate;
 fit. Selecting anything brings it to arm's length and unfolds it into a detail
 panel; selecting again anywhere at all closes it, and a `‹ BACK` control under
 the panel says so for anyone who would rather not guess.
+
+The panel always opens upright, at the same height and the same distance,
+in front of whichever way you are facing. Only yaw is taken from the head —
+keeping pitch, as this first did, meant looking down at a low card threw the
+panel down along that gaze and tilted it to match.
 
 Both prototype grids sit on the same 1.6 m radius, so expanding can never put a
 card behind another. Concentric ranks were tried first — further out and higher

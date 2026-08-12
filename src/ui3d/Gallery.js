@@ -151,12 +151,22 @@ export function createGallery({ stage, heroPool, atlas, onRecenter }) {
     if (state.focused === slab) return;
     state.focused = slab;
 
-    const slot = focusSlot(head.position, head.quaternion);
-    const from = slab.object3d.getWorldPosition(new THREE.Vector3());
-    // The panel lives inside the rig, so a world-space head position
-    // has to come back into rig space before it can be used.
-    stage.rig.worldToLocal(slot.position);
-    stage.rig.worldToLocal(from);
+    // The panel is a child of the rig, so everything the slot is built
+    // from has to be in rig space first — otherwise the rig's own yaw
+    // is applied twice and the panel faces the wrong way in a session.
+    // head.position/quaternion are reused scratch objects from
+    // main.js, so they must be cloned before anything mutates them.
+    const rig = stage.rig;
+    const rigQuatInv = rig.getWorldQuaternion(new THREE.Quaternion()).invert();
+    const headLocal = rig.worldToLocal(head.position.clone());
+    const forwardLocal = new THREE.Vector3(0, 0, -1)
+      .applyQuaternion(head.quaternion)
+      .applyQuaternion(rigQuatInv);
+
+    const slot = focusSlot(headLocal, forwardLocal, stage.eyeHeight);
+    const from = rig.worldToLocal(
+      slab.object3d.getWorldPosition(new THREE.Vector3())
+    );
 
     applyLayout();
     const result = await panel.open(panelItemFor(slab), slot, from);
