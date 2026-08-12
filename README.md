@@ -136,7 +136,7 @@ timecode you have already set.
 tools/encode.sh
 ```
 
-About 210 MB: a 12.6 MB atlas plus 29 hero clips at 1280×720. If it lands over
+About 160 MB: a 12.6 MB atlas plus 29 hero clips at 1280×720, crf 27. If it lands over
 ~300 MB, shorten `HERO_SECONDS` or raise `-crf` in the script.
 
 Note that a re-encode commits a whole second copy of `media/` into git history,

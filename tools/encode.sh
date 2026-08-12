@@ -142,6 +142,12 @@ while IFS=$'\t' read -r -u 3 tile key inpoint kind title; do
     # -ss before -i is a keyframe-accurate fast seek; +faststart moves
     # the moov atom to the head so playback starts before the whole
     # file lands, which static hosting otherwise makes you wait for.
+    # crf 27 rather than a smaller frame: measured on these sources,
+    # 720p at crf 27 and 540p at crf 24 come out the same size and the
+    # same SSIM, so dropping resolution buys nothing and costs the
+    # fine on-screen text these demos are full of. 1280 is also the
+    # width the panel actually needs — 1.12 m at 1.15 m subtends 52
+    # deg, which is ~1040-1300 texels on Quest 3.
     # Fit-and-pad to exactly 1280x720. scale=1280:-2 would preserve the
     # source aspect, and half of these videos are 4:3, 5:4 or portrait —
     # the detail panel's hero quad is a fixed 16:9, so anything else
@@ -149,7 +155,7 @@ while IFS=$'\t' read -r -u 3 tile key inpoint kind title; do
     # would cut the top and bottom off a demo the viewer opened to watch.
     ffmpeg -nostdin -y -loglevel error -ss "$hero_in" -t "$HERO_SECONDS" -i "$src" \
       -vf "scale=1280:720:force_original_aspect_ratio=decrease:flags=lanczos,pad=1280:720:(ow-iw)/2:(oh-ih)/2:color=black,fps=30,format=yuv420p" \
-      -c:v libx264 -profile:v high -level:v 4.0 -preset slow -crf 24 \
+      -c:v libx264 -profile:v high -level:v 4.0 -preset slow -crf 27 \
       -maxrate 3000k -bufsize 6000k -g 60 -keyint_min 60 -sc_threshold 0 \
       -c:a aac -b:a 96k -ac 2 -ar 48000 \
       -movflags +faststart "$hero_out"
