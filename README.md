@@ -35,7 +35,8 @@ Nothing else is there on arrival — it *grows*. Expanding a research theme rush
 its projects in from depth to settle in the space the other themes vacate;
 `+ MORE` reflows the prototype grid from 3×3 to 4×6 and scales the cards down to
 fit. Selecting anything brings it to arm's length and unfolds it into a detail
-panel.
+panel; selecting again anywhere at all closes it, and a `‹ BACK` control under
+the panel says so for anyone who would rather not guess.
 
 Both prototype grids sit on the same 1.6 m radius, so expanding can never put a
 card behind another. Concentric ranks were tried first — further out and higher

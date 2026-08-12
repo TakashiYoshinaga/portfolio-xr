@@ -22,7 +22,7 @@ import { FEATURED } from "../../data/hobby.js";
 import { TILE_INDEX } from "../../data/atlas.js";
 
 export function createGallery({ stage, heroPool, atlas, onRecenter }) {
-  const panel = createDetailPanel({ heroPool, atlas });
+  const panel = createDetailPanel({ heroPool, atlas, backChip: stage.backChip });
   panel.setTileLookup(TILE_INDEX);
   stage.rig.add(panel.object3d);
 
@@ -177,11 +177,12 @@ export function createGallery({ stage, heroPool, atlas, onRecenter }) {
   /* --- selection ------------------------------------------- */
 
   function select(node, head) {
-    // While an item is open, any selection closes it first. Selecting
-    // the world behind the panel is the natural "back".
+    // While an item is open, any selection closes it — the panel body,
+    // the back chip, or empty space. The chip exists to make that
+    // discoverable, not because it is the only way out.
     if (state.focused) {
       unfocus();
-      return { action: "unfocus" };
+      return { action: "unfocus", via: node?.action === "back" ? "back" : "dismiss" };
     }
 
     if (!node) return { action: "none" };
@@ -219,10 +220,11 @@ export function createGallery({ stage, heroPool, atlas, onRecenter }) {
     focus,
     unfocus,
 
-    /** While an item is open its panel is the only pickable, so a
-     *  stray ray through the dimmed gallery cannot select behind it. */
+    /** While an item is open only the panel and its back control are
+     *  pickable, so a stray ray through the dimmed gallery cannot
+     *  select something behind it. */
     get pickables() {
-      return state.focused ? [panel.pickable] : stage.pickables;
+      return state.focused ? panel.pickables : stage.pickables;
     },
 
     get externalLink() {

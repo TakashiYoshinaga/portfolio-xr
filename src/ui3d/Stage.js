@@ -87,6 +87,13 @@ export function createStage({ mediaTexture = null } = {}) {
       widthMetres: CHIP_WIDTH,
       distance: LAYOUT.recenter.radius,
     },
+    {
+      variant: "chip",
+      title: "back",
+      arrow: "left",
+      widthMetres: CHIP_WIDTH,
+      distance: LAYOUT.focus.distance,
+    },
   ];
   const labelTexture = paintLabelAtlas(labelEntries);
 
@@ -98,6 +105,7 @@ export function createStage({ mediaTexture = null } = {}) {
   };
   LABEL_BASE.less = LABEL_BASE.more + 1;
   LABEL_BASE.recenter = LABEL_BASE.more + 2;
+  LABEL_BASE.back = LABEL_BASE.more + 3;
 
   const researchChrome = cardChromeTexture(
     researchMetrics.width / researchMetrics.height
@@ -177,6 +185,18 @@ export function createStage({ mediaTexture = null } = {}) {
     accent: COLOR.textMuted,
   });
 
+  /* Lives on the detail panel rather than in the console layout, so
+     it is created here (the label atlas is here) but parented by the
+     panel and left out of the stage's own pickables. */
+  const backChip = new Chip({
+    key: "back",
+    action: "back",
+    labelIndex: LABEL_BASE.back,
+    labelTexture,
+    width: CHIP_WIDTH,
+    height: CHIP_HEIGHT,
+  });
+
   const chips = [moreChip, recenterChip];
   const allSlabs = [...researchSlabs, ...projectSlabs, ...hobbySlabs];
   const everything = [...allSlabs, ...chips];
@@ -194,6 +214,7 @@ export function createStage({ mediaTexture = null } = {}) {
     chips,
     moreChip,
     recenterChip,
+    backChip,
     labelTexture,
 
     get eyeHeight() {

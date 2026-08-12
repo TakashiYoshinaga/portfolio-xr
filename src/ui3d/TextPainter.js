@@ -277,16 +277,21 @@ export function paintLabelAtlas(entries) {
 /** In-world control captions: centred, mono, uppercase. Controls have
  *  to be 3D because dom-overlay is not granted on Quest hardware. */
 function paintChip(ctx, entry, W, H) {
-  const { title, widthMetres, distance, accent = COLOR.accent } = entry;
+  const { title, widthMetres, distance, accent = COLOR.accent, arrow } = entry;
   const pxm = pxPerMetre(W, widthMetres);
   const pad = Math.round(H * 0.09);
   const radius = (H - pad * 2) / 2;
   const label = String(title).toUpperCase();
+  // Drawn as a path, not a glyph: U+2190 sits outside the latin
+  // subset these self-hosted fonts ship, so an arrow character would
+  // silently fall back to a system face — and the canvas bakes that
+  // choice into a texture permanently.
+  const arrowW = arrow ? Math.round(H * 0.26) : 0;
 
   // Shrink to fit the pill. The angular ideal is a starting point,
   // not a guarantee: a long caption like RECENTER overruns a chip
   // sized for AR or VR and would render clipped.
-  const inner = W - pad * 2 - radius * 1.2;
+  const inner = W - pad * 2 - radius * 1.2 - arrowW * 1.8;
   let size = Math.max(26, sizeForAngle(TITLE_DEG * 0.8, distance, pxm));
   for (; size > 20; size -= 2) {
     ctx.font = `500 ${size}px ${FONT.mono}`;
@@ -313,10 +318,27 @@ function paintChip(ctx, entry, W, H) {
   ctx.textAlign = "center";
   ctx.fillStyle = accent;
   // Nudge right by half the trailing letter-space so the tracked text
-  // still reads as centred.
-  ctx.fillText(label, W / 2 + Math.round(size * 0.07), H / 2 + size * 0.36);
+  // still reads as centred, and again by half the arrow's footprint so
+  // the pair sits centred together.
+  const textX = W / 2 + Math.round(size * 0.07) + arrowW;
+  ctx.fillText(label, textX, H / 2 + size * 0.36);
   ctx.textAlign = "left";
   ctx.letterSpacing = "0px";
+
+  if (arrow === "left") {
+    const textW = ctx.measureText(label).width;
+    const x = textX - textW / 2 - arrowW * 1.5;
+    const y = H / 2;
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = Math.max(3, Math.round(H * 0.035));
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    ctx.moveTo(x + arrowW * 0.55, y - arrowW * 0.55);
+    ctx.lineTo(x, y);
+    ctx.lineTo(x + arrowW * 0.55, y + arrowW * 0.55);
+    ctx.stroke();
+  }
 }
 
 function paintLabel(ctx, entry, W, H) {

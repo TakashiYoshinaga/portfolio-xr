@@ -30,7 +30,7 @@ function setQuadUV(geometry, { u0, u1, v0, v1 }) {
   uv.needsUpdate = true;
 }
 
-export function createDetailPanel({ heroPool, atlas }) {
+export function createDetailPanel({ heroPool, atlas, backChip }) {
   const { focus } = LAYOUT;
 
   const group = new THREE.Group();
@@ -98,6 +98,27 @@ export function createDetailPanel({ heroPool, atlas }) {
   hitArea.userData.pickable = false;
   group.add(hitArea);
 
+  /* --- explicit back control -------------------------------
+     Selecting anywhere already dismisses, which is fast once you know
+     it. A labelled target makes that discoverable instead of
+     something you have to guess at. Parented to the panel so it flies
+     and fades with it rather than being animated separately. */
+  if (backChip) {
+    backChip.seat(
+      {
+        position: new THREE.Vector3(
+          0,
+          -focus.panelHeight / 2 - focus.pad - 0.03,
+          0.01
+        ),
+        rotation: new THREE.Euler(0, 0, 0),
+      },
+      true
+    );
+    backChip.object3d.renderOrder = 22;
+    group.add(backChip.object3d);
+  }
+
   let current = null;
   let opacity = 0;
   let targetOpacity = 0;
@@ -133,8 +154,10 @@ export function createDetailPanel({ heroPool, atlas }) {
       return current?.key ?? null;
     },
 
-    get pickable() {
-      return hitArea;
+    /** The panel body and the back control. Both dismiss; the body is
+     *  the shortcut, the chip is the signpost. */
+    get pickables() {
+      return backChip ? [hitArea, backChip.pickable] : [hitArea];
     },
 
     setTileLookup(map) {
@@ -165,6 +188,8 @@ export function createDetailPanel({ heroPool, atlas }) {
       group.scale.setScalar(0.35);
       group.visible = true;
       hitArea.userData.pickable = true;
+      backChip?.setVisible(true);
+      backChip?.setOpacity(0, true);
 
       targetPosition.copy(slot.position);
       targetQuaternion.setFromEuler(slot.rotation);
@@ -212,6 +237,7 @@ export function createDetailPanel({ heroPool, atlas }) {
       targetOpacity = 0;
       targetScale.value = 0.4;
       hitArea.userData.pickable = false;
+      backChip?.setVisible(false);
     },
 
     update(dt) {
@@ -229,6 +255,11 @@ export function createDetailPanel({ heroPool, atlas }) {
       panelMaterial.opacity = opacity;
       heroMaterial.opacity = opacity;
 
+      if (backChip) {
+        backChip.setOpacity(current ? opacity : 0);
+        backChip.update(dt);
+      }
+
       if (!current && opacity < 0.01) {
         group.visible = false;
         // Drop back to the atlas so the next open does not flash the
@@ -245,6 +276,7 @@ export function createDetailPanel({ heroPool, atlas }) {
       panelMaterial.dispose();
       heroMaterial.dispose();
       hitArea.material.dispose();
+      backChip?.dispose();
     },
   };
 }
