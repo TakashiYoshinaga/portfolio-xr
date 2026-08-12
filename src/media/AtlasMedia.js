@@ -59,6 +59,10 @@ export async function createAtlasMedia({ onTexture } = {}) {
   let videoTexture = null;
   let active = poster;
   let state = poster ? "poster" : "empty";
+  // Set only by pauseToPoster(). The watchdog below must never undo a
+  // pause we asked for, only ones we did not.
+  let intentionallyPaused = false;
+  let watchdog = null;
 
   function publish(texture, nextState) {
     active = texture;
@@ -180,6 +184,23 @@ export async function createAtlasMedia({ onTexture } = {}) {
         if (poster) publish(poster, "poster");
       });
 
+      // Insurance for the whole "should be playing, isn't" class —
+      // a platform where the loop attribute does not re-arm, or a
+      // power saver that suspends the element behind our back. Both
+      // look identical to the user: the thumbnails just stop.
+      video.addEventListener("ended", () => {
+        if (intentionallyPaused) return;
+        video.currentTime = 0;
+        attemptPlay();
+      });
+
+      if (!watchdog) {
+        watchdog = setInterval(() => {
+          if (state !== "video" || intentionallyPaused) return;
+          if (video.paused || video.ended) attemptPlay();
+        }, 2000);
+      }
+
       await attemptPlay();
       return state;
     },
@@ -187,6 +208,7 @@ export async function createAtlasMedia({ onTexture } = {}) {
     /** Perf guardrail lever: drop to stills, keep the layout intact. */
     pauseToPoster() {
       if (state !== "video" || !poster) return false;
+      intentionallyPaused = true;
       video.pause();
       publish(poster, "poster");
       return true;
@@ -197,12 +219,15 @@ export async function createAtlasMedia({ onTexture } = {}) {
     async resumeVideo() {
       if (state === "video") return false;
       if (!video.src) return false;
+      intentionallyPaused = false;
       const ok = await attemptPlay();
       if (ok && videoTexture) publish(videoTexture, "video");
       return ok;
     },
 
     dispose() {
+      if (watchdog) clearInterval(watchdog);
+      watchdog = null;
       video.pause();
       video.removeAttribute("src");
       video.load();

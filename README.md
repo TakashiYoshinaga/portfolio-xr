@@ -173,8 +173,29 @@ Keys: `F` eye view, `O` overview, `G` toggle ground.
 
 **WebXR needs a secure context.** `localhost` counts; pointing a headset at your
 laptop's LAN IP over plain http does not, and that trips up almost everyone on
-their first device test. The quickest path is to push to GitHub Pages and iterate
-there.
+their first device test.
+
+To test on a real device without publishing, forward the port over USB —
+Chrome's forwarding presents the server as `localhost` on the device, which
+satisfies the secure-context rule:
+
+```
+chrome://inspect#devices → Port forwarding → 8777 : localhost:8777
+```
+
+Then open `http://localhost:8777/` on the phone or headset. The same page gives
+you its console, which is the only way to see the `[perf]` logs from a session.
+
+```bash
+node tools/loop-check.mjs
+```
+
+checks the perf guardrail against synthesised frame-time sequences. It exists
+because the guardrail's thresholds were once absolute constants tuned for 72 fps
+— which meant "slower than a Quest" rather than "failing to keep up", so a phone
+running perfectly well at its native 30 fps was judged to be struggling and had
+its atlas video paused twelve seconds in. That is invisible on a desktop, so the
+state machine is separable from three.js and driven directly by the check.
 
 `package.json` exists only to mark `.js` as ES modules so `tools/` can import
 `data/` in Node. There are no dependencies and no install step — `npm install`

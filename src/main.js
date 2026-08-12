@@ -209,9 +209,14 @@ function startLoop() {
         renderer.render(scene, preview.camera);
       }
     },
-    onDegrade(level, avg) {
+    // Both logs quote the device's own cadence alongside the measured
+    // average. Without it "33.3ms" is unreadable — that is a phone
+    // running perfectly at 30 fps, and it used to be enough to get the
+    // atlas paused.
+    onDegrade({ level, avgMs, refMs, nativeFps }) {
       console.warn(
-        `[perf] frame time ${avg.toFixed(1)}ms — quality level ${level}`
+        `[perf] ${avgMs.toFixed(1)}ms avg vs ${refMs.toFixed(1)}ms native ` +
+          `(${nativeFps.toFixed(0)}fps) — quality level ${level}`
       );
       // Level 1 is heavier foveation (handled in Loop). Level 2 gives
       // up the atlas decode, which is the last big lever available
@@ -221,9 +226,10 @@ function startLoop() {
         console.warn("[perf] atlas video paused — thumbnails are stills");
       }
     },
-    onRecover(level, avg) {
+    onRecover({ level, avgMs, refMs, nativeFps }) {
       console.info(
-        `[perf] recovered to ${avg.toFixed(1)}ms — quality level ${level}`
+        `[perf] recovered: ${avgMs.toFixed(1)}ms avg vs ${refMs.toFixed(1)}ms ` +
+          `native (${nativeFps.toFixed(0)}fps) — quality level ${level}`
       );
       if (level < 2) atlas?.resumeVideo();
     },
