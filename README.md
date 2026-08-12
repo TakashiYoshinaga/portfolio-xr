@@ -17,13 +17,13 @@ fits inside Quest 3's field of view, so all of it is readable without turning
 around.
 
 ```
-     RESEARCH (3 themes)            PROTOTYPES (8 of 22)
+     RESEARCH (3 themes)            PROTOTYPES (9 of 22)
          ┌──────────┐          │    ┌────┐ ┌────┐ ┌────┐
          │ THEME 01 │          │    └────┘ └────┘ └────┘
          └──────────┘          │    ┌────┐ ┌────┐ ┌────┐
          ┌──────────┐        SPINE  └────┘ └────┘ └────┘
-         │ THEME 02 │          │    ┌────┐ ┌────┐
-         └──────────┘          │    └────┘ └────┘
+         │ THEME 02 │          │    ┌────┐ ┌────┐ ┌────┐
+         └──────────┘          │    └────┘ └────┘ └────┘
          ┌──────────┐          │
          │ THEME 03 │          │   [RECENTER]     [+ MORE]
          └──────────┘          │

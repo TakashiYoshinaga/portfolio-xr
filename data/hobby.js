@@ -8,7 +8,10 @@
    More/Less toggle.
    ========================================================= */
 
-export const FEATURED = 8;
+/* Fills the collapsed 3x3 grid exactly. The 2D site features 8, but
+   there the cards flow in a column; here a ninth empty cell is just a
+   hole in the grid. */
+export const FEATURED = 9;
 
 export const HOBBY = [
   { id: "57gkK-xGxKQ", title: "Snap2VoxelAR",

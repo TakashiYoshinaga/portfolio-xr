@@ -1,7 +1,7 @@
 /* =========================================================
    Gallery — the state machine.
 
-     CONSOLE   what you arrive to: 3 themes, 8 prototypes, controls
+     CONSOLE   what you arrive to: 3 themes, 9 prototypes, controls
      THEME     one theme expanded, its projects rushed in from depth
      EXPANDED  all 22 prototypes, in a reflowed flat grid
      FOCUS     one item, open at arm's length
