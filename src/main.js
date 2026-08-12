@@ -139,7 +139,12 @@ document.getElementById("ov-recenter")?.addEventListener("click", () => {
   // bakes that fallback into a texture that is never repainted.
   stage = createStage({ mediaTexture: atlas.texture });
   scene.add(stage.rig);
-  gallery = createGallery({ stage, heroPool, atlas });
+  gallery = createGallery({
+    stage,
+    heroPool,
+    atlas,
+    onRecenter: () => placement.recenter(),
+  });
   placement = createPlacement(stage.rig);
 
   pointer = createPointer(renderer, scene, () => gallery.pickables, {

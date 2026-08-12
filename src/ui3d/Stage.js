@@ -20,6 +20,7 @@ import {
   projectEntrySlot,
   themeHeaderSlot,
   tagRailSlots,
+  recenterSlot,
   hobbyCapacity,
 } from "./Layout.js";
 import { Slab } from "./Slab.js";
@@ -95,6 +96,13 @@ export function createStage({ mediaTexture = null } = {}) {
       widthMetres: CHIP_WIDTH,
       distance: LAYOUT.tagRail.radius,
     })),
+    {
+      variant: "chip",
+      title: "recenter",
+      accent: COLOR.textMuted,
+      widthMetres: CHIP_WIDTH,
+      distance: LAYOUT.recenter.radius,
+    },
   ];
   const labelTexture = paintLabelAtlas(labelEntries);
 
@@ -106,6 +114,7 @@ export function createStage({ mediaTexture = null } = {}) {
   };
   LABEL_BASE.less = LABEL_BASE.more + 1;
   LABEL_BASE.tags = LABEL_BASE.more + 2;
+  LABEL_BASE.recenter = LABEL_BASE.tags + TAGS.length;
 
   const researchChrome = cardChromeTexture(
     researchMetrics.width / researchMetrics.height
@@ -186,7 +195,20 @@ export function createStage({ mediaTexture = null } = {}) {
       })
   );
 
-  const chips = [moreChip, ...tagChips];
+  /* Recentering has to be reachable in-world. On Quest the DOM
+     overlay is never granted, and entering while facing a wall is
+     the difference between a usable and unusable session. */
+  const recenterChip = new Chip({
+    key: "recenter",
+    action: "recenter",
+    labelIndex: LABEL_BASE.recenter,
+    labelTexture,
+    width: CHIP_WIDTH,
+    height: CHIP_HEIGHT,
+    accent: COLOR.textMuted,
+  });
+
+  const chips = [moreChip, ...tagChips, recenterChip];
   const allSlabs = [...researchSlabs, ...projectSlabs, ...hobbySlabs];
   const everything = [...allSlabs, ...chips];
 
@@ -203,6 +225,7 @@ export function createStage({ mediaTexture = null } = {}) {
     chips,
     moreChip,
     tagChips,
+    recenterChip,
     labelTexture,
 
     get eyeHeight() {
@@ -246,6 +269,7 @@ export function createStage({ mediaTexture = null } = {}) {
       themeHeader: () => themeHeaderSlot(eyeY),
       moreCap: () => moreCapSlot(eyeY),
       tagRail: () => tagRailSlots(eyeY),
+      recenter: () => recenterSlot(eyeY),
     },
 
     update(dt) {

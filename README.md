@@ -31,10 +31,18 @@ around.
                       ── R = 1.6 m ──
 ```
 
-The corridor is not there on arrival — it *grows*. Expanding a research theme
-sends its projects receding into depth; `+14 MORE` grows the prototype grid into
-concentric ranks, each one further out and higher so it clears the rank in front.
-Selecting anything brings it to 1.05 m and unfolds it into a detail panel.
+Nothing else is there on arrival — it *grows*. Expanding a research theme rushes
+its projects in from depth to settle in the space the other themes vacate;
+`+14 MORE` grows the prototype grid into concentric ranks, each further out and
+higher so it clears the rank in front. Selecting anything brings it to arm's
+length and unfolds it into a detail panel.
+
+The corridor is the transition, not the resting state. A receding line of cards
+was built first and does not work: four cards down one axis each need roughly
+their own angular width (~20°) of separation to avoid occluding each other, and
+fanning them wide enough pushes the far one past 60° off-centre. The grid keeps
+every project legible standing, seated, or on a phone — none of which can rely
+on the viewer walking.
 
 ## Architecture notes
 

@@ -147,6 +147,16 @@ export const LAYOUT = {
     angles: [10, 22, 34, 46],
   },
 
+  /* Recenter sits under the spine, between the two banks. It has to
+     exist in-world: Quest never grants dom-overlay, and entering
+     while facing a wall is the difference between a usable and an
+     unusable session. */
+  recenter: {
+    angle: -16,
+    radius: 1.6,
+    y: 0.62,
+  },
+
   /* Dimming levels for the non-focused world */
   dim: {
     collapsed: 0.2,

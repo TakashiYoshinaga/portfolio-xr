@@ -266,9 +266,21 @@ export function paintLabelAtlas(entries) {
 function paintChip(ctx, entry, W, H) {
   const { title, widthMetres, distance, accent = COLOR.accent } = entry;
   const pxm = pxPerMetre(W, widthMetres);
-  const size = Math.max(26, sizeForAngle(TITLE_DEG * 0.8, distance, pxm));
   const pad = Math.round(H * 0.09);
   const radius = (H - pad * 2) / 2;
+  const label = String(title).toUpperCase();
+
+  // Shrink to fit the pill. The angular ideal is a starting point,
+  // not a guarantee: a long caption like RECENTER overruns a chip
+  // sized for AR or VR and would render clipped.
+  const inner = W - pad * 2 - radius * 1.2;
+  let size = Math.max(26, sizeForAngle(TITLE_DEG * 0.8, distance, pxm));
+  for (; size > 20; size -= 2) {
+    ctx.font = `500 ${size}px ${FONT.mono}`;
+    ctx.letterSpacing = `${Math.round(size * 0.14)}px`;
+    if (ctx.measureText(label).width <= inner) break;
+  }
+  ctx.letterSpacing = "0px";
 
   // A filled pill rather than bare floating text — over passthrough,
   // unbacked glyphs on a busy room read as noise.
@@ -289,11 +301,7 @@ function paintChip(ctx, entry, W, H) {
   ctx.fillStyle = accent;
   // Nudge right by half the trailing letter-space so the tracked text
   // still reads as centred.
-  ctx.fillText(
-    String(title).toUpperCase(),
-    W / 2 + Math.round(size * 0.07),
-    H / 2 + size * 0.36
-  );
+  ctx.fillText(label, W / 2 + Math.round(size * 0.07), H / 2 + size * 0.36);
   ctx.textAlign = "left";
   ctx.letterSpacing = "0px";
 }
@@ -385,6 +393,52 @@ function paintLabel(ctx, entry, W, H) {
     cursorX += pillW + tagSize * 0.4;
   }
   ctx.letterSpacing = "0px";
+}
+
+/* ---------------------------------------------------------
+   Spine plate — the identity marker between the two banks.
+
+   Its own small texture rather than a label-atlas slot: it is a
+   different shape from every card label, and one 512x256 canvas is
+   cheaper than distorting the atlas tile aspect for a single item.
+   --------------------------------------------------------- */
+
+export function spinePlateTexture({ name, subtitle, widthMetres, distance }) {
+  const W = 512;
+  const H = 256;
+  const { el, ctx } = canvas2d(W, H);
+  const pxm = pxPerMetre(W, widthMetres);
+
+  const nameSize = Math.max(30, sizeForAngle(1.35, distance, pxm));
+  const subSize = Math.max(20, sizeForAngle(0.78, distance, pxm));
+
+  ctx.textAlign = "center";
+
+  ctx.font = `700 ${nameSize}px ${FONT.display}`;
+  ctx.fillStyle = COLOR.text;
+  ctx.fillText("TAKASHI YOSHINAGA", W / 2, H * 0.42);
+
+  // Gradient hairline between the two lines, echoing the 2D site's
+  // brand gradient.
+  const ruleW = W * 0.46;
+  ctx.fillStyle = linearGradient(
+    ctx,
+    GRADIENT.brand,
+    (W - ruleW) / 2,
+    0,
+    (W + ruleW) / 2,
+    0
+  );
+  ctx.fillRect((W - ruleW) / 2, H * 0.52, ruleW, Math.max(2, H * 0.012));
+
+  ctx.font = `500 ${subSize}px ${FONT.mono}`;
+  ctx.letterSpacing = `${Math.round(subSize * 0.24)}px`;
+  ctx.fillStyle = COLOR.textMuted;
+  ctx.fillText(subtitle, W / 2 + subSize * 0.12, H * 0.74);
+  ctx.letterSpacing = "0px";
+  ctx.textAlign = "left";
+
+  return texture(el);
 }
 
 /* ---------------------------------------------------------

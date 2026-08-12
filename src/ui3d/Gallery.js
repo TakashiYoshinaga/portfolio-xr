@@ -2,12 +2,12 @@
    Gallery — the state machine.
 
      CONSOLE   what you arrive to: 3 themes, 8 prototypes, controls
-     CORRIDOR  a theme expanded, its projects receding into depth
+     THEME     one theme expanded, its projects rushed in from depth
      EXPANDED  all 22 prototypes, in concentric ranks
      FOCUS     one item, open at arm's length
 
-   CORRIDOR and EXPANDED are independent — you can have a theme open
-   and the full prototype set at once. FOCUS layers on top of either.
+   THEME and EXPANDED are independent — you can have a theme open and
+   the full prototype set at once. FOCUS layers on top of either.
 
    Every layout decision goes through applyLayout(), so there is one
    place that decides where a slab belongs given the current state.
@@ -17,13 +17,17 @@ import * as THREE from "three";
 import { LAYOUT, URLS } from "../core/Theme.js";
 import { focusSlot } from "./Layout.js";
 import { createDetailPanel } from "./DetailPanel.js";
+import { createAmbient } from "./Ambient.js";
 import { FEATURED } from "../../data/hobby.js";
 import { TILE_INDEX } from "../../data/atlas.js";
 
-export function createGallery({ stage, heroPool, atlas }) {
+export function createGallery({ stage, heroPool, atlas, onRecenter }) {
   const panel = createDetailPanel({ heroPool, atlas });
   panel.setTileLookup(TILE_INDEX);
   stage.rig.add(panel.object3d);
+
+  const ambient = createAmbient();
+  stage.rig.add(ambient.object3d);
 
   const state = {
     expandedTheme: null, // theme key, or null
@@ -116,6 +120,13 @@ export function createGallery({ stage, heroPool, atlas }) {
       chip.setVisible(true);
       chip.setOpacity(backdrop);
     });
+
+    stage.recenterChip.seat(stage.slots.recenter(), immediate);
+    stage.recenterChip.setVisible(true);
+    stage.recenterChip.setOpacity(backdrop);
+
+    ambient.setEyeHeight(stage.eyeHeight);
+    ambient.setDimmed(focusing);
   }
 
   /* --- focus ----------------------------------------------- */
@@ -199,6 +210,10 @@ export function createGallery({ stage, heroPool, atlas }) {
         applyLayout();
         return { action: "more", expanded: state.hobbyExpanded };
       }
+      if (node.action === "recenter") {
+        onRecenter?.();
+        return { action: "recenter" };
+      }
       if (node.action === "tag") {
         if (state.activeTags.has(node.payload)) state.activeTags.delete(node.payload);
         else state.activeTags.add(node.payload);
@@ -257,10 +272,12 @@ export function createGallery({ stage, heroPool, atlas }) {
     update(dt) {
       stage.update(dt);
       panel.update(dt);
+      ambient.update(dt);
     },
 
     dispose() {
       panel.dispose();
+      ambient.dispose();
     },
   };
 }

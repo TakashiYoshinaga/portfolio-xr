@@ -165,6 +165,12 @@ export function tagRailSlots(eyeY) {
   }));
 }
 
+/** The recenter control, under the spine between the two banks. */
+export function recenterSlot(eyeY) {
+  const { recenter } = LAYOUT;
+  return arcSlot(recenter.angle, recenter.radius, recenter.y, eyeY);
+}
+
 /** Dead ahead of the user's current gaze, where a focused item lands. */
 export function focusSlot(headPosition, headQuaternion) {
   const { focus } = LAYOUT;
