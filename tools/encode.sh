@@ -59,7 +59,7 @@ fresh() { # fresh <output> -> 0 if it needs building
 slots=0
 missing=()
 
-while IFS=$'\t' read -r tile key inpoint kind title; do
+while IFS=$'\t' read -r -u 3 tile key inpoint kind title; do
   [[ -z "${tile:-}" || "$tile" == \#* ]] && continue
   slots=$((slots + 1))
   tile_out="$WORK/tile_${tile}.mp4"
@@ -75,7 +75,7 @@ while IFS=$'\t' read -r tile key inpoint kind title; do
     fi
     if fresh "$tile_out"; then
       echo "  [$tile] $key — still"
-      ffmpeg -y -loglevel error -loop 1 -t "$ATLAS_SECONDS" -i "$src" \
+      ffmpeg -nostdin -y -loglevel error -loop 1 -t "$ATLAS_SECONDS" -i "$src" \
         -vf "scale=${TILE_W}:${TILE_H}:force_original_aspect_ratio=increase,crop=${TILE_W}:${TILE_H},fps=${ATLAS_FPS},format=yuv420p" \
         -an -c:v libx264 -preset veryslow -crf 20 "$tile_out"
     fi
@@ -91,7 +91,7 @@ while IFS=$'\t' read -r tile key inpoint kind title; do
   # -- atlas tile: 8 s silent loop --
   if [[ "$DO_ATLAS" == 1 ]] && fresh "$tile_out"; then
     echo "  [$tile] $key — tile"
-    ffmpeg -y -loglevel error -ss "$inpoint" -t "$ATLAS_SECONDS" -i "$src" \
+    ffmpeg -nostdin -y -loglevel error -ss "$inpoint" -t "$ATLAS_SECONDS" -i "$src" \
       -vf "scale=${TILE_W}:${TILE_H}:force_original_aspect_ratio=increase,crop=${TILE_W}:${TILE_H},fps=${ATLAS_FPS},setpts=PTS-STARTPTS,format=yuv420p" \
       -an -c:v libx264 -preset veryslow -crf 18 "$tile_out"
   fi
@@ -103,14 +103,19 @@ while IFS=$'\t' read -r tile key inpoint kind title; do
     # -ss before -i is a keyframe-accurate fast seek; +faststart moves
     # the moov atom to the head so playback starts before the whole
     # file lands, which static hosting otherwise makes you wait for.
-    ffmpeg -y -loglevel error -ss "$inpoint" -t "$HERO_SECONDS" -i "$src" \
-      -vf "scale=1280:-2:flags=lanczos,fps=30,format=yuv420p" \
+    # Fit-and-pad to exactly 1280x720. scale=1280:-2 would preserve the
+    # source aspect, and half of these videos are 4:3, 5:4 or portrait —
+    # the detail panel's hero quad is a fixed 16:9, so anything else
+    # arrives stretched. Padding keeps the whole frame; cropping to fill
+    # would cut the top and bottom off a demo the viewer opened to watch.
+    ffmpeg -nostdin -y -loglevel error -ss "$inpoint" -t "$HERO_SECONDS" -i "$src" \
+      -vf "scale=1280:720:force_original_aspect_ratio=decrease:flags=lanczos,pad=1280:720:(ow-iw)/2:(oh-ih)/2:color=black,fps=30,format=yuv420p" \
       -c:v libx264 -profile:v high -level:v 4.0 -preset slow -crf 24 \
       -maxrate 3000k -bufsize 6000k -g 60 -keyint_min 60 -sc_threshold 0 \
       -c:a aac -b:a 96k -ac 2 -ar 48000 \
       -movflags +faststart "$hero_out"
   fi
-done < "$HERE/clips.tsv"
+done 3< "$HERE/clips.tsv"
 
 if (( ${#missing[@]} > 0 )); then
   echo
@@ -125,8 +130,23 @@ fi
 if [[ "$DO_ATLAS" == 1 ]]; then
   expected=$((COLS * ROWS))
   if (( slots != expected )); then
-    echo "error: clips.tsv has $slots rows but the grid is ${COLS}x${ROWS} = $expected." >&2
+    echo "error: read $slots rows from clips.tsv but the grid is ${COLS}x${ROWS} = $expected." >&2
     echo "       xstack needs exactly one input per cell." >&2
+    exit 1
+  fi
+
+  # Check the files themselves, not just the row count. A row that was
+  # never reached looks identical to a row that was read and skipped
+  # unless you look at what actually landed on disk.
+  gaps=()
+  for ((i = 0; i < expected; i++)); do
+    tile_file="$WORK/$(printf 'tile_%02d.mp4' "$i")"
+    [[ -f "$tile_file" ]] || gaps+=("$(printf 'tile_%02d' "$i")")
+  done
+  if (( ${#gaps[@]} > 0 )); then
+    echo "error: ${#gaps[@]} of $expected tiles were never written:" >&2
+    printf '  - %s\n' "${gaps[@]}" >&2
+    echo "       re-run tools/encode.sh; use --force to rebuild everything." >&2
     exit 1
   fi
 
@@ -138,7 +158,7 @@ if [[ "$DO_ATLAS" == 1 ]]; then
     labels+="[${i}:v]"
   done
 
-  ffmpeg -y -loglevel error "${inputs[@]}" \
+  ffmpeg -nostdin -y -loglevel error "${inputs[@]}" \
     -filter_complex "${labels}xstack=inputs=${expected}:grid=${COLS}x${ROWS}:fill=black[v]" \
     -map "[v]" -an \
     -c:v libx264 -profile:v high -level:v 4.2 -preset veryslow \
@@ -150,7 +170,7 @@ if [[ "$DO_ATLAS" == 1 ]]; then
   # Poster atlas from the atlas's own first frame, so the still and
   # the video share pixel-identical UVs by construction.
   echo "  poster atlas"
-  ffmpeg -y -loglevel error -i "$OUT/atlas.mp4" -frames:v 1 \
+  ffmpeg -nostdin -y -loglevel error -i "$OUT/atlas.mp4" -frames:v 1 \
     -c:v mjpeg -q:v 4 "$POSTER/posters.jpg"
 fi
 
@@ -160,7 +180,7 @@ fi
 # the site and a broken video.
 if fresh "$OUT/prime.mp4"; then
   echo "  prime stub"
-  ffmpeg -y -loglevel error -f lavfi -i color=c=black:s=64x64:r=1:d=1 \
+  ffmpeg -nostdin -y -loglevel error -f lavfi -i color=c=black:s=64x64:r=1:d=1 \
     -f lavfi -i anullsrc=r=48000:cl=stereo -t 1 \
     -c:v libx264 -crf 40 -pix_fmt yuv420p -c:a aac -b:a 8k \
     -movflags +faststart "$OUT/prime.mp4"

@@ -35,7 +35,7 @@ command -v ffmpeg >/dev/null 2>&1 || { echo "error: ffmpeg not found" >&2; exit 
 mkdir -p "$WORK" "$POSTER"
 
 slots=0
-while IFS=$'\t' read -r tile key inpoint kind title; do
+while IFS=$'\t' read -r -u 3 tile key inpoint kind title; do
   [[ -z "${tile:-}" || "$tile" == \#* ]] && continue
   slots=$((slots + 1))
   out="$WORK/tile_${tile}.png"
@@ -51,7 +51,7 @@ while IFS=$'\t' read -r tile key inpoint kind title; do
     done
     if [[ ! -f "$src" ]]; then
       echo "  [$tile] $key — MISSING still, using placeholder" >&2
-      ffmpeg -y -loglevel error -f lavfi -i "color=c=0x111627:s=${TILE_W}x${TILE_H}" -frames:v 1 "$out"
+      ffmpeg -nostdin -y -loglevel error -f lavfi -i "color=c=0x111627:s=${TILE_W}x${TILE_H}" -frames:v 1 "$out"
       continue
     fi
   else
@@ -60,22 +60,22 @@ while IFS=$'\t' read -r tile key inpoint kind title; do
     if ! curl -fsSL "https://img.youtube.com/vi/${key}/maxresdefault.jpg" -o "$src"; then
       curl -fsSL "https://img.youtube.com/vi/${key}/hqdefault.jpg" -o "$src" || {
         echo "  [$tile] $key — thumbnail unavailable" >&2
-        ffmpeg -y -loglevel error -f lavfi -i "color=c=0x111627:s=${TILE_W}x${TILE_H}" -frames:v 1 "$out"
+        ffmpeg -nostdin -y -loglevel error -f lavfi -i "color=c=0x111627:s=${TILE_W}x${TILE_H}" -frames:v 1 "$out"
         continue
       }
       # hqdefault: crop the 4:3 frame back to the 16:9 centre.
-      ffmpeg -y -loglevel error -i "$src" \
+      ffmpeg -nostdin -y -loglevel error -i "$src" \
         -vf "crop=iw:iw*9/16,scale=${TILE_W}:${TILE_H}:flags=lanczos" -frames:v 1 "$out"
       echo "  [$tile] $key (hqdefault)"
       continue
     fi
   fi
 
-  ffmpeg -y -loglevel error -i "$src" \
+  ffmpeg -nostdin -y -loglevel error -i "$src" \
     -vf "scale=${TILE_W}:${TILE_H}:force_original_aspect_ratio=increase,crop=${TILE_W}:${TILE_H}" \
     -frames:v 1 "$out"
   echo "  [$tile] $key"
-done < "$HERE/clips.tsv"
+done 3< "$HERE/clips.tsv"
 
 expected=$((COLS * ROWS))
 if (( slots != expected )); then
@@ -91,7 +91,7 @@ for ((i = 0; i < expected; i++)); do
   labels+="[${i}:v]"
 done
 
-ffmpeg -y -loglevel error "${inputs[@]}" \
+ffmpeg -nostdin -y -loglevel error "${inputs[@]}" \
   -filter_complex "${labels}xstack=inputs=${expected}:grid=${COLS}x${ROWS}:fill=black[v]" \
   -map "[v]" -frames:v 1 -c:v mjpeg -q:v 4 "$POSTER/posters.jpg"
 

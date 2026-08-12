@@ -39,7 +39,7 @@ total=0
 fetched=0
 skipped=0
 
-while IFS=$'\t' read -r tile key inpoint kind title; do
+while IFS=$'\t' read -r -u 3 tile key inpoint kind title; do
   [[ -z "${tile:-}" || "$tile" == \#* ]] && continue
   [[ "$kind" != "video" ]] && continue
   total=$((total + 1))
@@ -63,7 +63,7 @@ while IFS=$'\t' read -r tile key inpoint kind title; do
       continue
     }
   fetched=$((fetched + 1))
-done < "$HERE/clips.tsv"
+done 3< "$HERE/clips.tsv"
 
 echo
 echo "done — $fetched downloaded, $skipped already present, $total total"
