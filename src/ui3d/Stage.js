@@ -19,7 +19,6 @@ import {
   projectSlots,
   projectEntrySlot,
   themeHeaderSlot,
-  tagRailSlots,
   recenterSlot,
   hobbyCapacity,
 } from "./Layout.js";
@@ -27,9 +26,8 @@ import { Slab } from "./Slab.js";
 import { Chip } from "./Chip.js";
 import { cardChromeTexture, paintLabelAtlas } from "./TextPainter.js";
 import { WORKS } from "../../data/works.js";
-import { HOBBY, FEATURED, TAGS } from "../../data/hobby.js";
+import { HOBBY, FEATURED } from "../../data/hobby.js";
 import { TILE_INDEX } from "../../data/atlas.js";
-import { TAG_COLOR } from "../core/Theme.js";
 
 const CHIP_WIDTH = 0.17;
 const CHIP_HEIGHT = 0.064;
@@ -49,17 +47,6 @@ export function createStage({ mediaTexture = null } = {}) {
   const hobbyMetrics = slabMetrics(LAYOUT.hobby.mediaWidth);
   const projectMetrics = slabMetrics(LAYOUT.projects.mediaWidth);
 
-  /* Type is sized for the distance a slab is actually viewed from,
-     so the outer ranks stay as readable as the near one. */
-  function rankRadiusFor(index) {
-    let remaining = index;
-    for (const rank of LAYOUT.hobby.ranks) {
-      if (remaining < rank.capacity) return rank.radius;
-      remaining -= rank.capacity;
-    }
-    return LAYOUT.hobby.ranks.at(-1).radius;
-  }
-
   const projects = WORKS.flatMap((theme) =>
     theme.projects.map((p) => ({ ...p, themeKey: theme.key }))
   );
@@ -71,7 +58,7 @@ export function createStage({ mediaTexture = null } = {}) {
     ...WORKS.map((theme) => ({
       title: theme.title,
       eyebrow: theme.eyebrow,
-      tags: [`${theme.projects.length} projects`],
+      meta: `${theme.projects.length} projects`,
       widthMetres: researchMetrics.labelWidth,
       distance: LAYOUT.research.radius,
     })),
@@ -81,21 +68,18 @@ export function createStage({ mediaTexture = null } = {}) {
       widthMetres: projectMetrics.labelWidth,
       distance: LAYOUT.projects.radius,
     })),
-    ...HOBBY.map((item, i) => ({
+    ...HOBBY.map((item) => ({
       title: item.title,
-      tags: item.tags,
       widthMetres: hobbyMetrics.labelWidth,
-      distance: rankRadiusFor(i),
+      // Sized for the collapsed grid, the state you arrive in and
+      // spend most time in. Expanded cards are 0.63x, putting their
+      // titles near 0.95 deg — still above the legibility floor, and
+      // in that state you are scanning thumbnails to pick one rather
+      // than reading.
+      distance: LAYOUT.hobby.radius,
     })),
     { variant: "chip", title: "+ more", widthMetres: CHIP_WIDTH, distance: 1.6 },
     { variant: "chip", title: "less", widthMetres: CHIP_WIDTH, distance: 1.6 },
-    ...TAGS.map((tag) => ({
-      variant: "chip",
-      title: tag,
-      accent: TAG_COLOR[tag],
-      widthMetres: CHIP_WIDTH,
-      distance: LAYOUT.tagRail.radius,
-    })),
     {
       variant: "chip",
       title: "recenter",
@@ -113,8 +97,7 @@ export function createStage({ mediaTexture = null } = {}) {
     more: WORKS.length + projects.length + HOBBY.length,
   };
   LABEL_BASE.less = LABEL_BASE.more + 1;
-  LABEL_BASE.tags = LABEL_BASE.more + 2;
-  LABEL_BASE.recenter = LABEL_BASE.tags + TAGS.length;
+  LABEL_BASE.recenter = LABEL_BASE.more + 2;
 
   const researchChrome = cardChromeTexture(
     researchMetrics.width / researchMetrics.height
@@ -181,20 +164,6 @@ export function createStage({ mediaTexture = null } = {}) {
     height: CHIP_HEIGHT,
   });
 
-  const tagChips = TAGS.map(
-    (tag, i) =>
-      new Chip({
-        key: `tag:${tag}`,
-        action: "tag",
-        payload: tag,
-        labelIndex: LABEL_BASE.tags + i,
-        labelTexture,
-        width: CHIP_WIDTH,
-        height: CHIP_HEIGHT,
-        accent: TAG_COLOR[tag],
-      })
-  );
-
   /* Recentering has to be reachable in-world. On Quest the DOM
      overlay is never granted, and entering while facing a wall is
      the difference between a usable and unusable session. */
@@ -208,7 +177,7 @@ export function createStage({ mediaTexture = null } = {}) {
     accent: COLOR.textMuted,
   });
 
-  const chips = [moreChip, ...tagChips, recenterChip];
+  const chips = [moreChip, recenterChip];
   const allSlabs = [...researchSlabs, ...projectSlabs, ...hobbySlabs];
   const everything = [...allSlabs, ...chips];
 
@@ -224,7 +193,6 @@ export function createStage({ mediaTexture = null } = {}) {
     allSlabs,
     chips,
     moreChip,
-    tagChips,
     recenterChip,
     labelTexture,
 
@@ -263,12 +231,11 @@ export function createStage({ mediaTexture = null } = {}) {
     /* --- slot providers, resolved against the current eye height --- */
     slots: {
       research: () => researchSlots(eyeY),
-      hobby: (count) => hobbySlots(count, eyeY),
+      hobby: (count, expanded) => hobbySlots(count, eyeY, expanded),
       projects: (count) => projectSlots(count, eyeY),
       projectEntry: projectEntrySlot,
       themeHeader: () => themeHeaderSlot(eyeY),
       moreCap: () => moreCapSlot(eyeY),
-      tagRail: () => tagRailSlots(eyeY),
       recenter: () => recenterSlot(eyeY),
     },
 

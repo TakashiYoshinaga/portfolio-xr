@@ -14,7 +14,7 @@
    ========================================================= */
 
 import * as THREE from "three";
-import { COLOR, FONT, GRADIENT, TAG_COLOR, TEX, TYPE } from "../core/Theme.js";
+import { COLOR, FONT, GRADIENT, TEX, TYPE } from "../core/Theme.js";
 
 /* Font sizes are chosen for an angular target, not a pixel one:
    below roughly 0.8 deg body text is unreadable in the headset no
@@ -203,7 +203,7 @@ function wrap(ctx, text, maxWidth, maxLines) {
   }
   if (line) lines.push(line);
 
-  const overflowed = consumed < words.length;
+  let overflowed = consumed < words.length;
   if (overflowed && lines.length) {
     lines[lines.length - 1] = truncate(
       ctx,
@@ -211,6 +211,19 @@ function wrap(ctx, text, maxWidth, maxLines) {
       maxWidth,
       true
     );
+  }
+
+  // A single word wider than the box is placed anyway by the `!line`
+  // clause above — otherwise it would be dropped entirely. That means
+  // a title with no spaces ("Snap2VoxelAR") can leave here wider than
+  // maxWidth with overflowed still false, and in a packed atlas it
+  // paints straight into the neighbouring tile. Any line that does not
+  // fit is an overflow, however it got here.
+  for (let i = 0; i < lines.length; i++) {
+    if (ctx.measureText(lines[i]).width > maxWidth) {
+      lines[i] = truncate(ctx, lines[i], maxWidth);
+      overflowed = true;
+    }
   }
   return { lines, overflowed };
 }
@@ -307,7 +320,7 @@ function paintChip(ctx, entry, W, H) {
 }
 
 function paintLabel(ctx, entry, W, H) {
-  const { title, tags = [], eyebrow, widthMetres, distance } = entry;
+  const { title, meta, eyebrow, widthMetres, distance } = entry;
   const pxm = pxPerMetre(W, widthMetres);
   const tagSize = Math.max(18, sizeForAngle(TAG_DEG, distance, pxm));
 
@@ -334,7 +347,7 @@ function paintLabel(ctx, entry, W, H) {
   // Title. Try the angular ideal first and shrink only as far as the
   // legibility floor allows; a long title going to two smaller lines
   // beats a short truncated one.
-  const tagBandH = tags.length ? tagSize * 2.2 : 0;
+  const tagBandH = meta ? tagSize * 2.2 : 0;
   const available = H - cursorY - tagBandH - padY;
   const preferred = Math.max(24, sizeForAngle(TITLE_DEG, distance, pxm));
   const floor = Math.max(22, Math.round(preferred * 0.62));
@@ -367,31 +380,29 @@ function paintLabel(ctx, entry, W, H) {
     ctx.fillText(line, padX, cursorY - Math.round(titleSize * 0.22));
   }
 
-  if (!tags.length) return;
+  if (!meta) return;
 
-  // Tag pills, mono and uppercase like the 2D site's labels.
+  // A single caption pill, mono and uppercase like the 2D site's
+  // labels. Used for a theme's project count; prototypes carry none.
   cursorY = H - Math.round(H * 0.08);
   ctx.font = `500 ${tagSize}px ${FONT.mono}`;
   ctx.letterSpacing = `${Math.round(tagSize * 0.1)}px`;
-  let cursorX = padX;
-  for (const tag of tags) {
-    const label = tag.toUpperCase();
-    const textW = ctx.measureText(label).width;
-    const pillW = textW + tagSize * 1.1;
-    const pillH = tagSize * 1.6;
-    if (cursorX + pillW > W - padX) break;
 
-    const color = TAG_COLOR[tag] ?? COLOR.textMuted;
-    ctx.globalAlpha = 0.16;
-    ctx.fillStyle = color;
-    roundRect(ctx, cursorX, cursorY - pillH, pillW, pillH, pillH / 2);
-    ctx.fill();
-    ctx.globalAlpha = 1;
+  const label = String(meta).toUpperCase();
+  const pillW = Math.min(
+    ctx.measureText(label).width + tagSize * 1.1,
+    innerW
+  );
+  const pillH = tagSize * 1.6;
 
-    ctx.fillStyle = color;
-    ctx.fillText(label, cursorX + tagSize * 0.55, cursorY - pillH * 0.32);
-    cursorX += pillW + tagSize * 0.4;
-  }
+  ctx.globalAlpha = 0.16;
+  ctx.fillStyle = COLOR.accent;
+  roundRect(ctx, padX, cursorY - pillH, pillW, pillH, pillH / 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+
+  ctx.fillStyle = COLOR.accent;
+  ctx.fillText(label, padX + tagSize * 0.55, cursorY - pillH * 0.32);
   ctx.letterSpacing = "0px";
 }
 

@@ -3,7 +3,7 @@
 
      CONSOLE   what you arrive to: 3 themes, 8 prototypes, controls
      THEME     one theme expanded, its projects rushed in from depth
-     EXPANDED  all 22 prototypes, in concentric ranks
+     EXPANDED  all 22 prototypes, in a reflowed flat grid
      FOCUS     one item, open at arm's length
 
    THEME and EXPANDED are independent — you can have a theme open and
@@ -32,7 +32,6 @@ export function createGallery({ stage, heroPool, atlas, onRecenter }) {
   const state = {
     expandedTheme: null, // theme key, or null
     hobbyExpanded: false,
-    activeTags: new Set(),
     focused: null, // slab, or null
   };
 
@@ -40,13 +39,6 @@ export function createGallery({ stage, heroPool, atlas, onRecenter }) {
 
   function visibleHobbyCount() {
     return state.hobbyExpanded ? stage.hobbySlabs.length : FEATURED;
-  }
-
-  function matchesFilter(slab) {
-    if (!state.activeTags.size) return true;
-    const tags = slab.data?.tags;
-    if (!Array.isArray(tags)) return true;
-    return tags.some((t) => state.activeTags.has(t));
   }
 
   function applyLayout({ immediate = false } = {}) {
@@ -90,21 +82,20 @@ export function createGallery({ stage, heroPool, atlas, onRecenter }) {
       slab.setOpacity(backdrop, immediate);
     }
 
-    /* prototypes */
+    /* prototypes — the grid reflows between two flat layouts on the
+       same radius, so expanding never puts a card behind another */
     const count = visibleHobbyCount();
-    const hobbySlots = stage.slots.hobby(stage.hobbySlabs.length);
+    const hobbySlots = stage.slots.hobby(
+      stage.hobbySlabs.length,
+      state.hobbyExpanded
+    );
     stage.hobbySlabs.forEach((slab, i) => {
       const shown = i < count;
-      // Hidden slabs are seated immediately so revealing them reads
-      // as the rank growing outward, not as a pop-in.
+      // Hidden slabs snap to their slot so revealing them is a fade
+      // into place rather than a flight across the grid.
       slab.seat(hobbySlots[i], immediate || !shown);
       slab.setVisible(shown);
-      if (!shown) {
-        slab.setOpacity(0, immediate);
-        return;
-      }
-      const dimmed = matchesFilter(slab) ? 1 : LAYOUT.dim.filtered;
-      slab.setOpacity(backdrop * dimmed, immediate);
+      slab.setOpacity(shown ? backdrop : 0, immediate);
     });
 
     /* controls */
@@ -112,14 +103,6 @@ export function createGallery({ stage, heroPool, atlas, onRecenter }) {
     stage.moreChip.setAlt(state.hobbyExpanded);
     stage.moreChip.setVisible(true);
     stage.moreChip.setOpacity(backdrop, immediate);
-
-    const railSlots = stage.slots.tagRail();
-    stage.tagChips.forEach((chip, i) => {
-      chip.seat(railSlots[i], immediate);
-      chip.setActive(state.activeTags.has(chip.payload));
-      chip.setVisible(true);
-      chip.setOpacity(backdrop, immediate);
-    });
 
     stage.recenterChip.seat(stage.slots.recenter(), immediate);
     stage.recenterChip.setVisible(true);
@@ -158,7 +141,6 @@ export function createGallery({ stage, heroPool, atlas, onRecenter }) {
       key: slab.key,
       eyebrow: "Prototype",
       title: data.title,
-      subtitle: (data.tags ?? []).join(" · "),
       body: data.desc,
       footer: `youtube.com/watch?v=${slab.key}`,
       hasVideo: true,
@@ -214,12 +196,6 @@ export function createGallery({ stage, heroPool, atlas, onRecenter }) {
         onRecenter?.();
         return { action: "recenter" };
       }
-      if (node.action === "tag") {
-        if (state.activeTags.has(node.payload)) state.activeTags.delete(node.payload);
-        else state.activeTags.add(node.payload);
-        applyLayout();
-        return { action: "tag", tags: [...state.activeTags] };
-      }
       return { action: "none" };
     }
 
@@ -264,7 +240,6 @@ export function createGallery({ stage, heroPool, atlas, onRecenter }) {
     collapseAll() {
       state.expandedTheme = null;
       state.hobbyExpanded = false;
-      state.activeTags.clear();
       unfocus();
       applyLayout();
     },

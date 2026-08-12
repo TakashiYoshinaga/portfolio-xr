@@ -51,59 +51,46 @@ export function researchSlots(eyeY) {
 }
 
 /**
- * Prototype slabs, laid out as a 3x3 grid per rank.
+ * Prototype slabs — a flat grid on a single radius, in both states.
  *
- * Rank 0 holds the 8 shown on entry and keeps its 9th grid slot for
- * the MORE/LESS cap; ranks 1 and 2 hold the remaining 14 and are
- * revealed by that cap.
+ * Expanding does not push cards into depth; it reflows the grid to
+ * more columns and rows and scales the cards down to fit. Every card
+ * stays the same distance away, so none can end up behind another.
  *
- * @param {number} count how many slabs to lay out (8 or 22)
+ * @param {number} count how many slabs to lay out
+ * @param {boolean} expanded which grid to use
  */
-export function hobbySlots(count, eyeY) {
+export function hobbySlots(count, eyeY, expanded = false) {
   const { hobby } = LAYOUT;
-  const cols = hobby.angles.length;
+  const grid = expanded
+    ? hobby.expanded
+    : { angles: hobby.angles, rowY: hobby.rowY, scale: 1 };
+  const cols = grid.angles.length;
   const slots = [];
 
-  let remaining = count;
-  let rankIndex = 0;
-
-  while (remaining > 0 && rankIndex < hobby.ranks.length) {
-    const rank = hobby.ranks[rankIndex];
-    const take = Math.min(remaining, rank.capacity);
-    for (let i = 0; i < take; i++) {
-      const row = Math.floor(i / cols);
-      const col = i % cols;
-      slots.push({
-        ...arcSlot(hobby.angles[col], rank.radius, rank.rowY[row], eyeY),
-        index: slots.length,
-        rank: rankIndex,
-      });
-    }
-    remaining -= take;
-    rankIndex++;
+  for (let i = 0; i < count; i++) {
+    const row = Math.min(Math.floor(i / cols), grid.rowY.length - 1);
+    const col = i % cols;
+    slots.push({
+      ...arcSlot(grid.angles[col], hobby.radius, grid.rowY[row], eyeY),
+      scale: grid.scale,
+      index: i,
+    });
   }
   return slots;
 }
 
-/** Total capacity across all ranks — a guard against the data
- *  outgrowing the layout silently. */
+/** Slots in the expanded grid — a guard against the data outgrowing
+ *  the layout silently. */
 export function hobbyCapacity() {
-  return LAYOUT.hobby.ranks.reduce((sum, r) => sum + r.capacity, 0);
+  const { expanded } = LAYOUT.hobby;
+  return expanded.angles.length * expanded.rowY.length;
 }
 
-/** The "+N MORE" / "LESS" cap. Fixed at rank 0's unused 9th grid
- *  slot (bottom right) so it never moves as ranks appear. */
+/** The "+N MORE" / "LESS" control, on the rail below everything. */
 export function moreCapSlot(eyeY) {
-  const { hobby } = LAYOUT;
-  const rank = hobby.ranks[0];
-  const cols = hobby.angles.length;
-  const rows = rank.rowY.length;
-  return arcSlot(
-    hobby.angles[cols - 1],
-    rank.radius,
-    rank.rowY[rows - 1],
-    eyeY
-  );
+  const { moreCap } = LAYOUT;
+  return arcSlot(moreCap.angle, moreCap.radius, moreCap.y, eyeY);
 }
 
 /**
@@ -154,15 +141,6 @@ export function projectEntrySlot(slot) {
 export function themeHeaderSlot(eyeY) {
   const { research } = LAYOUT;
   return arcSlot(research.angle, research.radius, research.rowY[0], eyeY);
-}
-
-/** The four tag chips, below the prototype bank. */
-export function tagRailSlots(eyeY) {
-  const { tagRail } = LAYOUT;
-  return tagRail.angles.map((angle, i) => ({
-    ...arcSlot(angle, tagRail.radius, tagRail.y, eyeY),
-    index: i,
-  }));
 }
 
 /** The recenter control, under the spine between the two banks. */

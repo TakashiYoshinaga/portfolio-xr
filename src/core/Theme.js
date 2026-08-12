@@ -48,15 +48,6 @@ export const FONT = {
   mono: '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace',
 };
 
-/* Tag colours. The four-way vocabulary comes straight from the
-   2D site's HOBBY data (ar / vr / ai / sensor). */
-export const TAG_COLOR = {
-  ar: COLOR.accent,
-  vr: COLOR.accent3,
-  ai: COLOR.accentText,
-  sensor: COLOR.accent2,
-};
-
 /* ---------------------------------------------------------
    Spatial layout constants.
 
@@ -84,19 +75,35 @@ export const LAYOUT = {
     mediaWidth: 0.46,
   },
 
+  /* Prototypes. Both states are a flat grid on ONE radius.
+
+     Concentric ranks were tried first — further out and higher so
+     each was meant to clear the one in front — and they do not work.
+     Depth-stacked cards read as clutter behind the near ones however
+     you offset them: the eye cannot tell "further away" from
+     "overlapping" when everything is the same shape.
+
+     Instead the grid reflows. Expanding shrinks the cards and adds
+     columns and rows at the same distance, so nothing is ever behind
+     anything. It also reads as stepping back to take the whole set
+     in, which is what the control actually means. */
   hobby: {
-    angles: [8, 27, 46],
+    radius: 1.6,
     mediaWidth: 0.44,
-    /* Concentric ranks revealed by "+14 MORE". Each further rank
-       sits higher as well as further out, so it clears the rank in
-       front instead of hiding behind it. Rank 0 holds 8 items and
-       reserves its 9th grid slot for the MORE/LESS cap.
-       Capacities sum to 22. */
-    ranks: [
-      { radius: 1.6, rowY: [1.95, 1.45, 0.95], capacity: 8 },
-      { radius: 2.5, rowY: [2.35, 1.83, 1.31], capacity: 9 },
-      { radius: 3.4, rowY: [2.7, 2.18, 1.66], capacity: 5 },
-    ],
+    angles: [8, 27, 46],
+    rowY: [1.95, 1.45, 0.95],
+    /* 4x6 = 24 slots for 22 prototypes. Deliberately taller than it
+       is wide: a 5x5 grid fits too, but its last column lands ~60 deg
+       off-centre, and horizontal head-turn is the scarce budget here
+       (the research column already occupies -49 deg on the other
+       side). Six rows cost far less comfort than a fifth column.
+       Cards scale down rather than being re-built, so the label
+       textures stay exactly as sharp. */
+    expanded: {
+      angles: [7, 18.5, 30, 41.5],
+      rowY: [2.15, 1.89, 1.63, 1.37, 1.11, 0.85],
+      scale: 0.6,
+    },
   },
 
   /* State 1 — a theme's projects.
@@ -138,29 +145,26 @@ export const LAYOUT = {
     heroHeight: 0.63, // 16:9
   },
 
-  /* Filter chips, on their own rail below the prototype bank. They
-     have to clear the bank's bottom row AND the MORE cap, which sits
-     in the grid's unused ninth cell at (46 deg, 0.95). */
-  tagRail: {
-    y: 0.6,
+  /* Controls sit on a rail below everything else, clear of both the
+     prototype grid's bottom row and the research column. They have to
+     exist in-world: Quest never grants dom-overlay, so a DOM button
+     is simply invisible in the headset — and entering a session
+     facing a wall makes recentering the difference between a usable
+     and an unusable experience. */
+  moreCap: {
+    angle: 30,
     radius: 1.55,
-    angles: [10, 22, 34, 46],
+    y: 0.58,
   },
-
-  /* Recenter sits under the spine, between the two banks. It has to
-     exist in-world: Quest never grants dom-overlay, and entering
-     while facing a wall is the difference between a usable and an
-     unusable session. */
   recenter: {
     angle: -16,
     radius: 1.6,
-    y: 0.62,
+    y: 0.58,
   },
 
   /* Dimming levels for the non-focused world */
   dim: {
     collapsed: 0.2,
-    filtered: 0.15,
     focusBackdrop: 0.12,
   },
 };

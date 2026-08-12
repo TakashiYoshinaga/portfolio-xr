@@ -22,10 +22,10 @@ around.
          │ THEME 01 │          │    └────┘ └────┘ └────┘
          └──────────┘          │    ┌────┐ ┌────┐ ┌────┐
          ┌──────────┐        SPINE  └────┘ └────┘ └────┘
-         │ THEME 02 │          │    ┌────┐ ┌────┐ ┌────┐
-         └──────────┘          │    └────┘ └────┘ │ +14│
-         ┌──────────┐          │                  └────┘
-         │ THEME 03 │          │
+         │ THEME 02 │          │    ┌────┐ ┌────┐
+         └──────────┘          │    └────┘ └────┘
+         ┌──────────┐          │
+         │ THEME 03 │          │   [RECENTER]     [+ MORE]
          └──────────┘          │
               θ=-40°          0°     +8°   +27°   +46°
                       ── R = 1.6 m ──
@@ -33,9 +33,15 @@ around.
 
 Nothing else is there on arrival — it *grows*. Expanding a research theme rushes
 its projects in from depth to settle in the space the other themes vacate;
-`+14 MORE` grows the prototype grid into concentric ranks, each further out and
-higher so it clears the rank in front. Selecting anything brings it to arm's
-length and unfolds it into a detail panel.
+`+ MORE` reflows the prototype grid from 3×3 to 4×6 and scales the cards down to
+fit. Selecting anything brings it to arm's length and unfolds it into a detail
+panel.
+
+Both prototype grids sit on the same 1.6 m radius, so expanding can never put a
+card behind another. Concentric ranks were tried first — further out and higher
+so each was meant to clear the one in front — and they read as clutter no matter
+how you offset them: the eye cannot separate "further away" from "overlapping"
+when every card is the same shape.
 
 The corridor is the transition, not the resting state. A receding line of cards
 was built first and does not work: four cards down one axis each need roughly
@@ -65,9 +71,9 @@ actually arriving, and the perf guardrail can drop back to stills mid-session.
 A missing decoder degrades to an image, never to a black rectangle.
 
 **Text is sized by angle, not pixels.** Type is scaled to subtend a target angle
-at each slab's real viewing distance, so slabs in the outer ranks stay as legible
-as the near ones. Below roughly 0.8° body text is unreadable in a headset no
-matter how many texels back it.
+at the slab's real viewing distance and size, rather than to a pixel height.
+Below roughly 0.8° body text is unreadable in a headset no matter how many texels
+back it.
 
 ```
 index.html          import map, entry screen, dom-overlay target
@@ -123,8 +129,8 @@ timecode you have already set.
 tools/encode.sh
 ```
 
-Roughly 150–200 MB total. If it lands over ~300 MB, shorten `HERO_SECONDS` or
-raise `-crf` in the script.
+About 110 MB: a 6.5 MB atlas plus 29 hero clips at 1280×720. If it lands over
+~300 MB, shorten `HERO_SECONDS` or raise `-crf` in the script.
 
 ### 5. Publish
 
