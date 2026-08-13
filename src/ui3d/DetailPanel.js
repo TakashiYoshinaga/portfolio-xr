@@ -14,7 +14,7 @@
    ========================================================= */
 
 import * as THREE from "three";
-import { COLOR, LAYOUT, TEX } from "../core/Theme.js";
+import { LAYOUT, TEX } from "../core/Theme.js";
 import { paintPanel, panelTexture } from "./TextPainter.js";
 import { tileUV } from "../../data/atlas.js";
 

@@ -53,6 +53,10 @@ export function createDebugHud() {
   let frames = 0;
   let fpsWindow = 0;
   let fps = 0;
+  // -1 so the first paint can never read as "hasn't moved".
+  let lastTime = -1;
+  let lastUploads = -1;
+  let lastRvfc = 0;
 
   function paint(lines) {
     ctx.clearRect(0, 0, WIDTH, HEIGHT);
@@ -134,17 +138,17 @@ export function createDebugHud() {
       } else if (s.paused) {
         verdict = "VIDEO PAUSED";
         verdictColour = bad;
-      } else if (canJudgeMotion && this._lastTime === s.currentTime) {
+      } else if (canJudgeMotion && lastTime === s.currentTime) {
         verdict = "VIDEO STALLED";
         verdictColour = bad;
-      } else if (canJudgeMotion && this._lastUploads === s.uploads) {
+      } else if (canJudgeMotion && lastUploads === s.uploads) {
         verdict = "TEXTURE FROZEN";
         verdictColour = bad;
       }
-      const rvfcDelta = s.rvfcCount - (this._lastRvfc ?? 0);
-      this._lastTime = s.currentTime;
-      this._lastUploads = s.uploads;
-      this._lastRvfc = s.rvfcCount;
+      const rvfcDelta = s.rvfcCount - lastRvfc;
+      lastTime = s.currentTime;
+      lastUploads = s.uploads;
+      lastRvfc = s.rvfcCount;
 
       paint([
         [verdict, verdictColour],

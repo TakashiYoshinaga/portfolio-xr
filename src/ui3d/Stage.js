@@ -26,7 +26,7 @@ import { Slab } from "./Slab.js";
 import { Chip } from "./Chip.js";
 import { cardChromeTexture, paintLabelAtlas } from "./TextPainter.js";
 import { WORKS } from "../../data/works.js";
-import { HOBBY, FEATURED } from "../../data/hobby.js";
+import { HOBBY } from "../../data/hobby.js";
 import { TILE_INDEX } from "../../data/atlas.js";
 
 const CHIP_WIDTH = 0.17;

@@ -253,5 +253,4 @@ export function slabMetrics(mediaWidth) {
 
 export const URLS = {
   site: "https://takashiyoshinaga.github.io/portfolio/",
-  youtubeWatch: (id) => `https://www.youtube.com/watch?v=${id}`,
 };

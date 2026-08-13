@@ -100,8 +100,8 @@ exactly like playback stopping. `AtlasMedia.tick()` and the detail panel compare
 
 **Stills are the floor, video is the upgrade.** `posters.jpg` loads first and the
 gallery is fully usable on it alone. `atlas.mp4` swaps in only once frames are
-actually arriving, and the perf guardrail can drop back to stills mid-session.
-A missing decoder degrades to an image, never to a black rectangle.
+actually arriving, and a decoder lost mid-session drops back to the stills. A
+missing or undecodable atlas degrades to an image, never to a black rectangle.
 
 **Text is sized by angle, not pixels.** Type is scaled to subtend a target angle
 at the slab's real viewing distance and size, rather than to a pixel height.
@@ -169,7 +169,7 @@ timecode you have already set.
 tools/encode.sh
 ```
 
-About 160 MB: a 12.6 MB atlas plus 29 hero clips at 1280×720, crf 27. If it lands over
+About 145 MB: a 12.6 MB atlas plus 29 hero clips at 1280×720, crf 27. If it lands over
 ~300 MB, shorten `HERO_SECONDS` or raise `-crf` in the script.
 
 Note that a re-encode commits a whole second copy of `media/` into git history,
@@ -221,12 +221,11 @@ you its console, which is the only way to see the `[perf]` logs from a session.
 node tools/loop-check.mjs
 ```
 
-checks the perf guardrail against synthesised frame-time sequences. It exists
-because the guardrail's thresholds were once absolute constants tuned for 72 fps
-— which meant "slower than a Quest" rather than "failing to keep up", so a phone
-running perfectly well at its native 30 fps was judged to be struggling and had
-its atlas video paused twelve seconds in. That is invisible on a desktop, so the
-state machine is separable from three.js and driven directly by the check.
+checks the perf guardrail against synthesised frame-time sequences — including
+all four of the misjudgements described above, each of which is now a regression.
+Every one of them was invisible on a desktop and cost a round trip to a real
+phone to find, which is why the state machine is separable from three.js and
+driven directly here.
 
 `package.json` exists only to mark `.js` as ES modules so `tools/` can import
 `data/` in Node. There are no dependencies and no install step — `npm install`

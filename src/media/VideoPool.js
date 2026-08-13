@@ -50,11 +50,9 @@ export function createVideoPool(size = 1) {
     el: makeElement(),
     key: null,
     lastUsed: 0,
-    primed: false,
   }));
 
   let clock = 0;
-  let primedOnce = false;
 
   function slotFor(key) {
     return slots.find((s) => s.key === key) ?? null;
@@ -67,14 +65,6 @@ export function createVideoPool(size = 1) {
   }
 
   return {
-    get size() {
-      return slots.length;
-    },
-
-    get primed() {
-      return primedOnce;
-    },
-
     /**
      * Unlock autoplay on every pooled element.
      *
@@ -93,10 +83,8 @@ export function createVideoPool(size = 1) {
             slot.el.src = PRIME_URL;
             await slot.el.play();
             slot.el.pause();
-            slot.primed = true;
             return true;
           } catch {
-            slot.primed = false;
             return false;
           } finally {
             releaseDecoder(slot.el);
@@ -104,8 +92,7 @@ export function createVideoPool(size = 1) {
           }
         })
       );
-      primedOnce = results.some(Boolean);
-      return primedOnce;
+      return results.some(Boolean);
     },
 
     /**
@@ -184,12 +171,9 @@ export function createVideoPool(size = 1) {
       return { el: slot.el, ok: true };
     },
 
-    /** Stop a key without freeing its decoder — cheap to resume. */
-    pause(key) {
-      slotFor(key)?.el.pause();
-    },
-
-    /** Free a key's decoder outright. */
+    /** Free a key's decoder outright. Panels always release rather
+     *  than pause: with a ceiling of one hero, holding a decoder for a
+     *  clip nobody is looking at is the whole budget. */
     release(key) {
       const slot = slotFor(key);
       if (!slot) return;

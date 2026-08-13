@@ -257,8 +257,6 @@ export async function createAtlasMedia({ onTexture } = {}) {
       };
     },
 
-
-
     dispose() {
       if (watchdog) clearInterval(watchdog);
       watchdog = null;

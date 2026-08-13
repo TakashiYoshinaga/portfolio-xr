@@ -5,9 +5,9 @@
    when a session is active, so there is exactly one implementation.
 
    It also carries the perf guardrail: a rolling frame-time average
-   that steps quality down rather than letting the device drop frames.
-   Framebuffer scale can't change mid-session, so the levers are
-   foveation first, then the atlas video.
+   that steps foveation up rather than letting the device drop frames.
+   Framebuffer scale can't change mid-session and the atlas video is
+   deliberately not a lever, so foveation is the only one there is.
 
    The guardrail no longer switches the atlas video off. That lever
    misjudged a healthy phone four separate times, each ending with a
@@ -56,12 +56,10 @@ const REF_MAX_MS = 45;
  * Exported so they can be checked directly against synthesised
  * frame-time sequences rather than only on a device.
  *
- * Level 2 is the step that switches the atlas video off, and it is
- * deliberately much harder to reach than level 1. Every instance of
- * this guardrail misfiring has ended with a black gallery on healthy
- * hardware, and there is no observed case of it having helped, so the
- * bar for the destructive lever is the device running at half its own
- * measured pace.
+ * The gap between the two is hysteresis: a window has to run half
+ * again slower than recent ones to read as a deviation, and back
+ * within a fifth of them to read as recovered, so a device sitting
+ * near the line does not oscillate.
  */
 export function frameBudget(refMs) {
   return { degradeMs: refMs * 1.5, recoverMs: refMs * 1.2 };
@@ -96,7 +94,6 @@ export function clampRef(ms) {
 export function createFrameMonitor({ maxLevel = 1 } = {}) {
   let acc = 0;
   let count = 0;
-  let windows = 0;
   let level = 0;
   let cooldown = 0;
   let refMs = null;
@@ -123,8 +120,8 @@ export function createFrameMonitor({ maxLevel = 1 } = {}) {
      * Android it reports the panel's refresh rate (90) while WebXR AR
      * actually delivers frames at the camera's cadence (30). That
      * makes the device look three times slower than its own baseline,
-     * which degraded the guardrail straight to level 2 and paused the
-     * atlas video on hardware that was running perfectly.
+     * which back when the guardrail still had a media lever was enough
+     * to switch the atlas off on hardware that was running perfectly.
      *
      * What the guardrail needs is what the device actually delivers,
      * and the only honest source for that is measurement. A reported
@@ -152,7 +149,6 @@ export function createFrameMonitor({ maxLevel = 1 } = {}) {
       const avgMs = acc / count;
       acc = 0;
       count = 0;
-      windows++;
 
       history.push(avgMs);
       if (history.length > HISTORY) history.shift();
@@ -203,11 +199,14 @@ export function createLoop(renderer, { onFrame, onDegrade, onRecover }) {
     if (!change) return;
 
     applyLevel(renderer, change.level);
+    // refFps, not nativeFps: refMs is the median of recent windows,
+    // which is what this device has been doing lately and not a rate
+    // any API vouches for.
     const report = {
       level: change.level,
       avgMs: change.avgMs,
       refMs: change.refMs,
-      nativeFps: 1000 / change.refMs,
+      refFps: 1000 / change.refMs,
     };
     if (change.action === "degrade") onDegrade?.(report);
     else onRecover?.(report);

@@ -229,25 +229,21 @@ function startLoop() {
         renderer.render(scene, preview.camera);
       }
     },
-    // Both logs quote the device's own cadence alongside the measured
+    // Both logs quote the recent baseline alongside the measured
     // average. Without it "33.3ms" is unreadable — that is a phone
     // running perfectly at 30 fps, and it used to be enough to get the
-    // atlas paused.
-    onDegrade({ level, avgMs, refMs, nativeFps }) {
+    // atlas paused. Neither handler touches media: foveation, applied
+    // in Loop, is the only lever, and this is reporting only.
+    onDegrade({ level, avgMs, refMs, refFps }) {
       console.warn(
-        `[perf] ${avgMs.toFixed(1)}ms avg vs ${refMs.toFixed(1)}ms native ` +
-          `(${nativeFps.toFixed(0)}fps) — quality level ${level}`
+        `[perf] ${avgMs.toFixed(1)}ms avg vs ${refMs.toFixed(1)}ms recent ` +
+          `(${refFps.toFixed(0)}fps) — quality level ${level}`
       );
-      // Deliberately no media lever here. Switching the atlas video
-      // off used to be the level-2 response, and it misjudged healthy
-      // hardware four times over without once being observed to help.
-      // Foveation (handled in Loop) is free and reversible; this is
-      // now reporting only.
     },
-    onRecover({ level, avgMs, refMs, nativeFps }) {
+    onRecover({ level, avgMs, refMs, refFps }) {
       console.info(
         `[perf] recovered: ${avgMs.toFixed(1)}ms avg vs ${refMs.toFixed(1)}ms ` +
-          `native (${nativeFps.toFixed(0)}fps) — quality level ${level}`
+          `recent (${refFps.toFixed(0)}fps) — quality level ${level}`
       );
     },
   });

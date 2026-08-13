@@ -14,7 +14,7 @@
    ========================================================= */
 
 import * as THREE from "three";
-import { LAYOUT, URLS } from "../core/Theme.js";
+import { LAYOUT } from "../core/Theme.js";
 import { focusSlot } from "./Layout.js";
 import { createDetailPanel } from "./DetailPanel.js";
 import { createAmbient } from "./Ambient.js";
@@ -237,23 +237,10 @@ export function createGallery({ stage, heroPool, atlas, onRecenter }) {
       return state.focused ? panel.pickables : stage.pickables;
     },
 
-    get externalLink() {
-      const slab = state.focused;
-      if (!slab || slab.kind === "theme") return null;
-      return URLS.youtubeWatch(slab.key);
-    },
-
     /** Re-seat everything, e.g. once the first XR pose reports a head
      *  height different from the 1.6 m default. */
     relayout(immediate = false) {
       applyLayout({ immediate });
-    },
-
-    collapseAll() {
-      state.expandedTheme = null;
-      state.hobbyExpanded = false;
-      unfocus();
-      applyLayout();
     },
 
     update(dt) {
