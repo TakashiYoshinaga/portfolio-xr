@@ -74,15 +74,22 @@ for (const [label, spikeFrames] of [["2s", 120], ["1s", 60], ["none", 0]]) {
   );
 }
 
-console.log("\n4. Reported frameRate (Quest) wins over measurement");
+console.log("\n4. A platform over-reporting its frame rate must not degrade us");
+console.log("   (Android reports the 90Hz panel while WebXR AR delivers 30fps —");
+console.log("    trusting that paused the atlas on hardware running perfectly)");
 {
   const m = createFrameMonitor();
-  m.setReportedFrameRate(72);
-  feed(m, 72, 40, 1, 200); // spikes that would otherwise skew it
+  m.noteReportedFrameRate(90); // what Android claims
+  const events = feed(m, 30, 40); // what it actually delivers
   ok(
-    Math.abs(m.referenceMs - 1000 / 72) < 0.01,
-    "session.frameRate=72 honoured despite spikes",
-    `ref=${m.referenceMs.toFixed(2)}ms`
+    events.filter((e) => e.action === "degrade").length === 0 && m.level === 0,
+    "claims 90Hz, delivers 30fps",
+    `ref=${m.referenceMs.toFixed(1)}ms claimed=${m.reportedFrameRate}Hz level=${m.level}`
+  );
+  ok(
+    Math.abs(m.referenceMs - 1000 / 30) < 1,
+    "reference follows measurement, not the claim",
+    `ref=${m.referenceMs.toFixed(1)}ms`
   );
 }
 
@@ -114,12 +121,13 @@ console.log("\n7. Helpers");
 ok(percentile([1, 2, 3, 4], 0) === 1, "percentile p=0 is the min");
 ok(percentile([1, 2, 3, 4], 1) === 4, "percentile p=1 is the max");
 ok(clampRef(1) === 6 && clampRef(999) === 45, "clampRef bounds");
-{
-  const b = frameBudget(1000 / 30);
+for (const fps of [30, 60, 90]) {
+  const b = frameBudget(1000 / fps);
+  const degradeFps = 1000 / b.degradeMs;
   ok(
-    b.degradeMs > 1000 / 30 && b.degradeMs < 1000 / 20,
-    "30fps degrade threshold sits between 30 and 20fps",
-    `degrade=${b.degradeMs.toFixed(1)}ms`
+    degradeFps < fps * 0.8 && degradeFps > fps * 0.5,
+    `${fps}fps degrades only well below native`,
+    `at ${degradeFps.toFixed(0)}fps (${b.degradeMs.toFixed(1)}ms)`
   );
 }
 

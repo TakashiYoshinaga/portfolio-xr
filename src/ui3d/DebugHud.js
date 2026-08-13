@@ -152,6 +152,13 @@ export function createDebugHud() {
           `lvl=${loop.level} ref=${loop.referenceMs?.toFixed(1) ?? "-"} fps=${fps.toFixed(0)}`,
         ],
         [
+          // The reported rate is not used for anything; it is here
+          // because a platform lying about it is exactly what caused
+          // the atlas to be paused on a healthy phone.
+          `claimed=${loop.reportedFrameRate ?? "-"}Hz`,
+          COLOR.textMuted,
+        ],
+        [
           `vis=${document.visibilityState} xr=${renderer.xr.isPresenting ? 1 : 0} ${elapsed.toFixed(0)}s`,
           COLOR.textMuted,
         ],

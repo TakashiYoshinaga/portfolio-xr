@@ -72,15 +72,22 @@ no software video decode, so exceeding the MediaCodec ceiling produces black
 quads rather than dropped frames. Concurrent decoders are capped at two: the
 atlas plus one hero clip.
 
+**The perf guardrail measures; it never trusts a reported frame rate.** Its job
+is to notice the app failing to hit the device's own cadence, and getting the
+reference wrong has twice switched the atlas video off on hardware that was
+running perfectly. First as an absolute 12 ms constant tuned for 72 fps, which
+really asks "slower than a Quest?"; then as `XRSession.frameRate`, which on
+Android reports the 90 Hz panel while WebXR AR delivers at the camera's 30 fps.
+Measurement is the only honest answer to what a device is actually doing, so
+`tools/loop-check.mjs` pins both traps down as regressions.
+
 **Video textures upload on our own schedule.** three.js's `VideoTexture` drives
 `needsUpdate` purely from `requestVideoFrameCallback` when the browser has it,
 and its `update()` becomes a no-op in that case. rVFC fires when a frame is
-presented for composition — which an invisible 1×1 element inside an immersive
-session may never be, so the texture freezes on its last frame while the video
-plays on. Indistinguishable from stopped playback, and it is why the phone
-looked broken while Quest did not. `AtlasMedia.tick()` and the detail panel
-compare `currentTime` instead: no rVFC dependency, and exactly one upload per
-new frame.
+presented for composition, which an invisible 1×1 element need not be — and then
+the texture freezes on its last frame while the video plays on, which looks
+exactly like playback stopping. `AtlasMedia.tick()` and the detail panel compare
+`currentTime` instead: no rVFC dependency, and exactly one upload per new frame.
 
 **Stills are the floor, video is the upgrade.** `posters.jpg` loads first and the
 gallery is fully usable on it alone. `atlas.mp4` swaps in only once frames are

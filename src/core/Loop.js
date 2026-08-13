@@ -9,14 +9,21 @@
    Framebuffer scale can't change mid-session, so the levers are
    foveation first, then the atlas video.
 
-   The guardrail's thresholds are RELATIVE to whatever cadence the
-   device actually runs at. They were absolute constants tuned for
-   72 fps, which quietly meant "slower than a Quest" rather than
-   "failing to keep up" — so a phone running WebXR AR perfectly well
-   at its native 30 fps was judged to be struggling, degraded twice,
-   and had its atlas video paused about twelve seconds in. Quest only
-   escaped because it happens to run at 90 Hz; at Meta's other default
-   of 72 Hz it would have hit the same thing.
+   The guardrail's thresholds are RELATIVE to the cadence the device
+   is measured to actually deliver.
+
+   Two ways of getting this wrong have already shipped. First an
+   absolute 12 ms constant tuned for 72 fps, which quietly asked
+   "slower than a Quest?" rather than "failing to keep up?" — so a
+   phone running WebXR AR perfectly well at 30 fps was judged to be
+   struggling and had its atlas video paused. Then XRSession.frameRate
+   as the reference, which on Android reports the panel's refresh rate
+   (90) while WebXR AR delivers at the camera's cadence (30) — same
+   outcome, three times over.
+
+   Measurement is the only honest answer to "what is this device
+   actually doing", so that is what is used. frameRate is recorded for
+   diagnostics and nothing else.
    ========================================================= */
 
 const WINDOW = 90; // frames in the rolling average
@@ -37,8 +44,8 @@ const REF_MAX_MS = 45;
  */
 export function frameBudget(refMs) {
   return {
-    degradeMs: refMs * 1.35, // ~26% below native before we act
-    recoverMs: refMs * 1.15,
+    degradeMs: refMs * 1.5, // a third below native before we act
+    recoverMs: refMs * 1.2,
   };
 }
 
@@ -79,6 +86,7 @@ export function createFrameMonitor({ maxLevel = 2 } = {}) {
   let level = 0;
   let cooldown = 0;
   let refMs = null;
+  let reportedRate = null;
   const warmupSamples = [];
 
   return {
@@ -89,11 +97,29 @@ export function createFrameMonitor({ maxLevel = 2 } = {}) {
       return refMs;
     },
 
-    /** Authoritative rate, when the platform exposes one. Optional in
-     *  the spec and absent wherever the page cannot control it, which
-     *  is why the measured path below has to exist at all. */
-    setReportedFrameRate(rate) {
-      if (rate && rate > 0) refMs = clampRef(1000 / rate);
+    get reportedFrameRate() {
+      return reportedRate;
+    },
+
+    /**
+     * Recorded for diagnostics ONLY — deliberately not used as the
+     * reference.
+     *
+     * XRSession.frameRate was treated as authoritative first, and on
+     * Android it reports the panel's refresh rate (90) while WebXR AR
+     * actually delivers frames at the camera's cadence (30). That
+     * makes the device look three times slower than its own baseline,
+     * which degraded the guardrail straight to level 2 and paused the
+     * atlas video on hardware that was running perfectly.
+     *
+     * What the guardrail needs is what the device actually delivers,
+     * and the only honest source for that is measurement. A reported
+     * rate faster than reality causes false degradation; measuring
+     * can at worst adopt a struggling baseline and do nothing, which
+     * is the safe direction to be wrong in.
+     */
+    noteReportedFrameRate(rate) {
+      if (rate && rate > 0) reportedRate = rate;
     },
 
     /**
@@ -160,7 +186,7 @@ export function createLoop(renderer, { onFrame, onDegrade, onRecover }) {
     // be read at construction time.
     if (!askedForRate && renderer.xr.isPresenting) {
       askedForRate = true;
-      monitor.setReportedFrameRate(renderer.xr.getSession()?.frameRate);
+      monitor.noteReportedFrameRate(renderer.xr.getSession()?.frameRate);
     }
 
     const change = monitor.sample(frameMs);
@@ -183,6 +209,11 @@ export function createLoop(renderer, { onFrame, onDegrade, onRecover }) {
     },
     get referenceMs() {
       return monitor.referenceMs;
+    },
+    /** What the platform claims, for the debug readout. Not used to
+     *  judge anything — see noteReportedFrameRate. */
+    get reportedFrameRate() {
+      return monitor.reportedFrameRate;
     },
     stop() {
       renderer.setAnimationLoop(null);
