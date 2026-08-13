@@ -7,7 +7,12 @@
    ========================================================= */
 
 import * as THREE from "three";
-import { probe, isPreviewRequested, isLocalDev } from "./xr/Capabilities.js";
+import {
+  probe,
+  isPreviewRequested,
+  isLocalDev,
+  isDebugRequested,
+} from "./xr/Capabilities.js";
 import {
   request as requestSession,
   explainSessionError,
@@ -22,6 +27,7 @@ import { createGallery } from "./ui3d/Gallery.js";
 import { waitForFonts } from "./ui3d/TextPainter.js";
 import { createEntryScreen } from "./ui2d/EntryScreen.js";
 import { createPreview } from "./preview/PreviewMode.js";
+import { createDebugHud } from "./ui3d/DebugHud.js";
 import { createAtlasMedia } from "./media/AtlasMedia.js";
 import { createVideoPool } from "./media/VideoPool.js";
 
@@ -43,6 +49,8 @@ let preview = null;
 let xrSession = null;
 let atlas = null;
 let heroPool = null;
+let debugHud = null;
+let loop = null;
 
 /** Where the viewer's head is, in world space. The XR camera during
  *  a session, the orbit camera in preview — the gallery does not
@@ -157,7 +165,13 @@ document.getElementById("ov-recenter")?.addEventListener("click", () => {
     },
   });
 
-  startLoop();
+  loop = startLoop();
+
+  if (isDebugRequested()) {
+    debugHud = createDebugHud();
+    debugHud.setEyeHeight(stage.eyeHeight);
+    stage.rig.add(debugHud.object3d);
+  }
 
   window.__xr = {
     renderer, scene, stage, gallery, placement, pointer, atlas, heroPool, THREE,
@@ -177,7 +191,9 @@ document.getElementById("ov-recenter")?.addEventListener("click", () => {
     // offer a way to draw one frame on demand when verifying.
     window.__xr.renderOnce = (dt = 1 / 60) => {
       preview.update();
+      atlas.tick();
       gallery.update(dt);
+      debugHud?.update(dt, { atlas, loop, renderer });
       renderer.render(scene, preview.camera);
     };
     console.info(
@@ -190,7 +206,7 @@ document.getElementById("ov-recenter")?.addEventListener("click", () => {
 })();
 
 function startLoop() {
-  createLoop(renderer, {
+  return createLoop(renderer, {
     onFrame(dt, frame) {
       if (renderer.xr.isPresenting) {
         const refSpace = renderer.xr.getReferenceSpace();
@@ -201,11 +217,15 @@ function startLoop() {
           gallery.relayout(true);
         }
         pointer.updateXR();
+        atlas.tick();
         gallery.update(dt);
+        debugHud?.update(dt, { atlas, loop, renderer });
         renderer.render(scene, xrCamera);
       } else if (preview) {
         preview.update();
+        atlas.tick();
         gallery.update(dt);
+        debugHud?.update(dt, { atlas, loop, renderer });
         renderer.render(scene, preview.camera);
       }
     },

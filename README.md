@@ -72,6 +72,16 @@ no software video decode, so exceeding the MediaCodec ceiling produces black
 quads rather than dropped frames. Concurrent decoders are capped at two: the
 atlas plus one hero clip.
 
+**Video textures upload on our own schedule.** three.js's `VideoTexture` drives
+`needsUpdate` purely from `requestVideoFrameCallback` when the browser has it,
+and its `update()` becomes a no-op in that case. rVFC fires when a frame is
+presented for composition — which an invisible 1×1 element inside an immersive
+session may never be, so the texture freezes on its last frame while the video
+plays on. Indistinguishable from stopped playback, and it is why the phone
+looked broken while Quest did not. `AtlasMedia.tick()` and the detail panel
+compare `currentTime` instead: no rVFC dependency, and exactly one upload per
+new frame.
+
 **Stills are the floor, video is the upgrade.** `posters.jpg` loads first and the
 gallery is fully usable on it alone. `atlas.mp4` swaps in only once frames are
 actually arriving, and the perf guardrail can drop back to stills mid-session.
@@ -170,6 +180,11 @@ abstraction, driven by an orbit camera instead of a headset. It is not offered o
 the published site. `?fov=quest` reframes it at Quest 3's field of view, which is
 the only way to check that the console really is readable without turning around.
 Keys: `F` eye view, `O` overview, `G` toggle ground.
+
+`?debug=1` puts a state readout inside the session — playing vs. paused vs.
+texture-frozen, upload and rVFC counts, perf level, visibility. A phone in
+immersive AR has no reachable console without a USB cable, which otherwise makes
+"it stops after a while" a report you can only answer by guessing.
 
 **WebXR needs a secure context.** `localhost` counts; pointing a headset at your
 laptop's LAN IP over plain http does not, and that trips up almost everyone on

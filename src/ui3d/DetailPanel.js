@@ -76,6 +76,8 @@ export function createDetailPanel({ heroPool, atlas, backChip }) {
      elements, so recreating a texture per open would leak GPU objects
      for no benefit. */
   const videoTextures = new WeakMap();
+  let heroVideo = null;
+  let heroLastTime = -1;
   function textureFor(el) {
     let texture = videoTextures.get(el);
     if (!texture) {
@@ -212,6 +214,8 @@ export function createDetailPanel({ heroPool, atlas, backChip }) {
 
       heroMaterial.map = textureFor(result.el);
       heroMaterial.needsUpdate = true;
+      heroVideo = result.el;
+      heroLastTime = -1;
       setQuadUV(hero.geometry, FULL_UV);
       return { ok: true, muted: result.el.muted, reason: result.reason };
     },
@@ -234,6 +238,7 @@ export function createDetailPanel({ heroPool, atlas, backChip }) {
       if (!current) return;
       heroPool.release(current.key);
       current = null;
+      heroVideo = null;
       targetOpacity = 0;
       targetScale.value = 0.4;
       hitArea.userData.pickable = false;
@@ -241,6 +246,17 @@ export function createDetailPanel({ heroPool, atlas, backChip }) {
     },
 
     update(dt) {
+      // Same reason as AtlasMedia.tick(): three.js drives VideoTexture
+      // uploads purely from requestVideoFrameCallback where it exists,
+      // and rVFC can stop firing for an offscreen element inside an
+      // immersive session, freezing the picture while the clip plays on.
+      if (heroVideo && heroMaterial.map?.isVideoTexture) {
+        if (heroVideo.readyState >= 2 && heroVideo.currentTime !== heroLastTime) {
+          heroLastTime = heroVideo.currentTime;
+          heroMaterial.map.needsUpdate = true;
+        }
+      }
+
       if (!group.visible) return;
       const k = 1 - Math.exp(-LERP * dt);
 

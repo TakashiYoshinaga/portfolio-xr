@@ -63,6 +63,11 @@ export async function createAtlasMedia({ onTexture } = {}) {
   // pause we asked for, only ones we did not.
   let intentionallyPaused = false;
   let watchdog = null;
+  // Diagnostics for the frozen-texture case, which looks exactly like
+  // stopped playback from the outside.
+  let lastUploadTime = -1;
+  let uploads = 0;
+  let rvfcCount = 0;
 
   function publish(texture, nextState) {
     active = texture;
@@ -194,6 +199,17 @@ export async function createAtlasMedia({ onTexture } = {}) {
         attemptPlay();
       });
 
+      // Our own rVFC counter, independent of the one three.js installs.
+      // If this stops climbing while currentTime keeps moving, the
+      // texture is frozen rather than the video stopped.
+      if ("requestVideoFrameCallback" in video) {
+        const count = () => {
+          rvfcCount++;
+          video.requestVideoFrameCallback(count);
+        };
+        video.requestVideoFrameCallback(count);
+      }
+
       if (!watchdog) {
         watchdog = setInterval(() => {
           if (state !== "video" || intentionallyPaused) return;
@@ -203,6 +219,44 @@ export async function createAtlasMedia({ onTexture } = {}) {
 
       await attemptPlay();
       return state;
+    },
+
+    /**
+     * Upload a frame if the video has advanced. Call once per render.
+     *
+     * three.js's VideoTexture drives needsUpdate purely from
+     * requestVideoFrameCallback whenever the browser has it, and its
+     * update() is a no-op in that case. rVFC fires when a frame is
+     * presented for composition — which an invisible 1x1 element
+     * inside an immersive session may never be. When that happens the
+     * texture freezes on its last frame while the video plays on, and
+     * from the outside it is indistinguishable from playback stopping.
+     *
+     * Comparing currentTime costs nothing and uploads exactly once per
+     * new frame, so this is no more work than rVFC would have done.
+     */
+    tick() {
+      if (state !== "video" || !videoTexture) return false;
+      if (video.readyState < 2 || video.currentTime === lastUploadTime) return false;
+      lastUploadTime = video.currentTime;
+      videoTexture.needsUpdate = true;
+      uploads++;
+      return true;
+    },
+
+    /** Snapshot for the on-device debug panel. */
+    get stats() {
+      return {
+        state,
+        paused: video.paused,
+        ended: video.ended,
+        currentTime: video.currentTime,
+        duration: video.duration || 0,
+        readyState: video.readyState,
+        uploads,
+        rvfcCount,
+        intentionallyPaused,
+      };
     },
 
     /** Perf guardrail lever: drop to stills, keep the layout intact. */

@@ -36,6 +36,12 @@ export function isPreviewRequested() {
   return new URLSearchParams(location.search).get("preview") === "1";
 }
 
+/** On-device state readout, for diagnosing a session on a phone
+ *  where the console is not reachable without a USB cable. */
+export function isDebugRequested() {
+  return new URLSearchParams(location.search).get("debug") === "1";
+}
+
 /** Whether to advertise the preview on the entry screen. It stays
  *  reachable by URL anywhere, but the published page is XR-only and
  *  should not offer a second-class desktop path — non-XR visitors
