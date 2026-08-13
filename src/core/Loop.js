@@ -12,22 +12,25 @@
    The guardrail's thresholds are RELATIVE to the cadence the device
    is measured to actually deliver.
 
-   Two ways of getting this wrong have already shipped. First an
-   absolute 12 ms constant tuned for 72 fps, which quietly asked
-   "slower than a Quest?" rather than "failing to keep up?" — so a
-   phone running WebXR AR perfectly well at 30 fps was judged to be
-   struggling and had its atlas video paused. Then XRSession.frameRate
-   as the reference, which on Android reports the panel's refresh rate
-   (90) while WebXR AR delivers at the camera's cadence (30) — same
-   outcome, three times over.
+   Three ways of getting this wrong have shipped, each ending with a
+   black gallery on a healthy phone:
 
-   Measurement is the only honest answer to "what is this device
-   actually doing", so that is what is used. frameRate is recorded for
-   diagnostics and nothing else.
+     1. An absolute 12 ms constant tuned for 72 fps, which quietly
+        asked "slower than a Quest?" rather than "failing to keep up?"
+     2. XRSession.frameRate as the reference — on Android that is the
+        panel's refresh rate, not the rate WebXR AR delivers at.
+     3. A baseline taken as a low percentile of individual frame times
+        while the test was a window mean. Different statistics, so on
+        a device with uneven delivery the test exceeded the reference
+        unconditionally.
+
+   Hence: measured, never reported; and the baseline is the same
+   statistic as the thing being judged. frameRate is read for the
+   debug readout and nothing else.
    ========================================================= */
 
 const WINDOW = 90; // frames in the rolling average
-const WARMUP_WINDOWS = 2; // no judgement while startup costs settle
+const WARMUP_WINDOWS = 4; // no judgement while startup costs settle
 
 /* Plausible bounds for a measured frame interval, so a pathological
    startup can never install a nonsense baseline. 6ms = 165fps,
@@ -36,40 +39,47 @@ const REF_MIN_MS = 6;
 const REF_MAX_MS = 45;
 
 /**
- * Degrade and recover thresholds for a device whose native frame
- * interval is `refMs`.
+ * Thresholds for a device whose baseline window average is `refMs`.
  *
- * Exported so the thresholds can be checked directly against
- * synthesised frame-time sequences rather than only on a headset.
+ * Exported so they can be checked directly against synthesised
+ * frame-time sequences rather than only on a device.
+ *
+ * Level 2 is the step that switches the atlas video off, and it is
+ * deliberately much harder to reach than level 1. Every instance of
+ * this guardrail misfiring has ended with a black gallery on healthy
+ * hardware, and there is no observed case of it having helped, so the
+ * bar for the destructive lever is the device running at half its own
+ * measured pace.
  */
-export function frameBudget(refMs) {
+export function frameBudget(refMs, level = 0) {
   return {
-    degradeMs: refMs * 1.5, // a third below native before we act
+    degradeMs: refMs * (level >= 1 ? 2.0 : 1.5),
     recoverMs: refMs * 1.2,
   };
 }
 
 /**
- * A low percentile, not a mean and not a median.
+ * The baseline: the best WINDOW AVERAGE the device managed while
+ * warming up.
  *
- * The first seconds include texture uploads, shader compiles and the
- * video decoder spinning up. A mean bakes those spikes in; a median
- * does too as soon as the spikes outnumber the settled frames, which
- * they easily can inside a short warm-up. What we want is the pace
- * the device hits when nothing is wrong — the floor it settles to —
- * and that is the fast end of the distribution.
+ * The statistic has to match the one being judged, and that is what
+ * went wrong before. The reference was the 25th percentile of
+ * individual frame times while the test was a window mean. On a
+ * device that delivers frames unevenly — bursts of fast frames with
+ * long waits between, which is what Android WebXR AR does — the mean
+ * sits far above the 25th percentile no matter how healthy the
+ * device is, so the comparison degraded unconditionally. Measured on
+ * the phone: p25 of 11.0 ms against a mean of 33.3 ms, a ratio of
+ * three, on hardware doing exactly what it should.
+ *
+ * Taking the minimum across warm-up windows rather than the median
+ * discounts the startup window, where texture uploads and shader
+ * compiles land, without needing to guess how long startup takes.
  */
-export function percentile(values, p) {
-  if (!values.length) return null;
-  const sorted = [...values].sort((a, b) => a - b);
-  const index = Math.min(
-    sorted.length - 1,
-    Math.max(0, Math.round((sorted.length - 1) * p))
-  );
-  return sorted[index];
+export function baselineFrom(windowAverages) {
+  if (!windowAverages.length) return null;
+  return Math.min(...windowAverages);
 }
-
-const REF_PERCENTILE = 0.25;
 
 export function clampRef(ms) {
   return Math.min(Math.max(ms, REF_MIN_MS), REF_MAX_MS);
@@ -87,7 +97,7 @@ export function createFrameMonitor({ maxLevel = 2 } = {}) {
   let cooldown = 0;
   let refMs = null;
   let reportedRate = null;
-  const warmupSamples = [];
+  const warmupAverages = [];
 
   return {
     get level() {
@@ -133,7 +143,6 @@ export function createFrameMonitor({ maxLevel = 2 } = {}) {
 
       acc += frameMs;
       count++;
-      if (refMs === null) warmupSamples.push(frameMs);
       if (count < WINDOW) return null;
 
       const avgMs = acc / count;
@@ -142,14 +151,14 @@ export function createFrameMonitor({ maxLevel = 2 } = {}) {
       windows++;
 
       if (windows <= WARMUP_WINDOWS) {
-        if (refMs === null && windows === WARMUP_WINDOWS) {
-          refMs = clampRef(percentile(warmupSamples, REF_PERCENTILE));
+        warmupAverages.push(avgMs);
+        if (windows === WARMUP_WINDOWS) {
+          refMs = clampRef(baselineFrom(warmupAverages));
         }
         return null;
       }
-      if (refMs === null) refMs = clampRef(percentile(warmupSamples, REF_PERCENTILE));
 
-      const { degradeMs, recoverMs } = frameBudget(refMs);
+      const { degradeMs, recoverMs } = frameBudget(refMs, level);
 
       if (cooldown > 0) {
         cooldown--;

@@ -11,7 +11,7 @@
 import {
   createFrameMonitor,
   frameBudget,
-  percentile,
+  baselineFrom,
   clampRef,
 } from "../src/core/Loop.js";
 
@@ -55,8 +55,10 @@ for (const fps of [30, 60, 72, 90]) {
   feed(m, fps, 10); // establish the baseline at native
   const events = feed(m, fps, 30, 2); // then halve the rate
   const degrades = events.filter((e) => e.action === "degrade");
+  // Level 1 is the correct response to exactly half rate; level 2
+  // (which kills the video) is reserved for worse — see section 8.
   ok(
-    degrades.length >= 2 && m.level === 2,
+    degrades.length >= 1 && m.level >= 1,
     `${String(fps).padStart(3)}fps drops to half`,
     `ref=${m.referenceMs.toFixed(1)}ms level=${m.level}`
   );
@@ -96,11 +98,15 @@ console.log("    trusting that paused the atlas on hardware running perfectly)")
 console.log("\n5. Degrade then recover");
 {
   const m = createFrameMonitor();
-  feed(m, 72, 10);
-  feed(m, 72, 30, 2);
+  feed(m, 72, 20);
+  feed(m, 72, 40, 3); // dire enough to reach the bottom
   const dropped = m.level;
-  feed(m, 72, 30);
-  ok(dropped === 2 && m.level === 0, "72fps: down to 2, back to 0", `dropped=${dropped} now=${m.level}`);
+  feed(m, 72, 40);
+  ok(
+    dropped === 2 && m.level === 0,
+    "72fps: down to 2, back to 0",
+    `dropped=${dropped} now=${m.level}`
+  );
 }
 
 console.log("\n6. Long stalls are ignored, not treated as slowness");
@@ -117,9 +123,42 @@ console.log("\n6. Long stalls are ignored, not treated as slowness");
   );
 }
 
-console.log("\n7. Helpers");
-ok(percentile([1, 2, 3, 4], 0) === 1, "percentile p=0 is the min");
-ok(percentile([1, 2, 3, 4], 1) === 4, "percentile p=1 is the max");
+console.log("\n7. Uneven delivery must not read as slowness");
+console.log("   (bursts of fast frames with long waits — what Android WebXR AR");
+console.log("    actually does. A steady sequence can never catch this.)");
+for (const [label, pattern] of [
+  ["3 fast + 1 long (avg 30fps)", [11, 11, 11, 100]],
+  ["1 fast + 1 long (avg 30fps)", [11, 55.6]],
+  ["jittery 60fps", [8, 8, 30, 8, 8, 30]],
+]) {
+  const m = createFrameMonitor();
+  let events = [];
+  for (let i = 0; i < 4000; i++) {
+    const e = m.sample(pattern[i % pattern.length]);
+    if (e) events.push(e);
+  }
+  const degrades = events.filter((e) => e.action === "degrade");
+  ok(
+    degrades.length === 0 && m.level === 0,
+    label,
+    `ref=${m.referenceMs.toFixed(1)}ms level=${m.level}`
+  );
+}
+
+console.log("\n8. Killing the video needs a dire case, not a marginal one");
+{
+  const m = createFrameMonitor();
+  feed(m, 60, 20);                       // baseline at 60fps
+  feed(m, 60, 40, 1.7);                  // 1.7x slower: bad, not dire
+  ok(m.level === 1, "1.7x slower reaches level 1 only", `level=${m.level}`);
+  const m2 = createFrameMonitor();
+  feed(m2, 60, 20);
+  feed(m2, 60, 40, 3);                   // 3x slower: dire
+  ok(m2.level === 2, "3x slower reaches level 2", `level=${m2.level}`);
+}
+
+console.log("\n9. Helpers");
+ok(baselineFrom([40, 33, 34, 33.5]) === 33, "baseline is the best warm-up window");
 ok(clampRef(1) === 6 && clampRef(999) === 45, "clampRef bounds");
 for (const fps of [30, 60, 90]) {
   const b = frameBudget(1000 / fps);

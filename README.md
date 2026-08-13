@@ -72,14 +72,18 @@ no software video decode, so exceeding the MediaCodec ceiling produces black
 quads rather than dropped frames. Concurrent decoders are capped at two: the
 atlas plus one hero clip.
 
-**The perf guardrail measures; it never trusts a reported frame rate.** Its job
-is to notice the app failing to hit the device's own cadence, and getting the
-reference wrong has twice switched the atlas video off on hardware that was
-running perfectly. First as an absolute 12 ms constant tuned for 72 fps, which
-really asks "slower than a Quest?"; then as `XRSession.frameRate`, which on
-Android reports the 90 Hz panel while WebXR AR delivers at the camera's 30 fps.
-Measurement is the only honest answer to what a device is actually doing, so
-`tools/loop-check.mjs` pins both traps down as regressions.
+**The perf guardrail measures, and compares like with like.** Its job is to
+notice the app failing to hit the device's own cadence, and getting the
+reference wrong switched the atlas video off on healthy hardware three separate
+times: an absolute 12 ms constant tuned for 72 fps (really "slower than a
+Quest?"); `XRSession.frameRate`, which on Android reports the 90 Hz panel while
+WebXR AR delivers at the camera's 30 fps; and a baseline taken as a low
+percentile of frame times while the test was a window mean, which on Android's
+bursty delivery exceeded the reference unconditionally. So: measured, never
+reported, and the baseline is the same statistic as the thing being judged. The
+step that actually kills the video needs the device at half its own measured
+pace. `tools/loop-check.mjs` pins all three traps down as regressions,
+including uneven delivery — which no steady synthetic sequence can catch.
 
 **Video textures upload on our own schedule.** three.js's `VideoTexture` drives
 `needsUpdate` purely from `requestVideoFrameCallback` when the browser has it,
