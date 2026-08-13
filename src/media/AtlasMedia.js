@@ -59,9 +59,6 @@ export async function createAtlasMedia({ onTexture } = {}) {
   let videoTexture = null;
   let active = poster;
   let state = poster ? "poster" : "empty";
-  // Set only by pauseToPoster(). The watchdog below must never undo a
-  // pause we asked for, only ones we did not.
-  let intentionallyPaused = false;
   let watchdog = null;
   // Diagnostics for the frozen-texture case, which looks exactly like
   // stopped playback from the outside.
@@ -194,7 +191,6 @@ export async function createAtlasMedia({ onTexture } = {}) {
       // power saver that suspends the element behind our back. Both
       // look identical to the user: the thumbnails just stop.
       video.addEventListener("ended", () => {
-        if (intentionallyPaused) return;
         video.currentTime = 0;
         attemptPlay();
       });
@@ -211,8 +207,11 @@ export async function createAtlasMedia({ onTexture } = {}) {
       }
 
       if (!watchdog) {
+        // Nothing in the app ever pauses this deliberately any more,
+        // so the invariant is simply: it should be playing. If it is
+        // not, whatever stopped it was not us.
         watchdog = setInterval(() => {
-          if (state !== "video" || intentionallyPaused) return;
+          if (state !== "video") return;
           if (video.paused || video.ended) attemptPlay();
         }, 2000);
       }
@@ -255,29 +254,10 @@ export async function createAtlasMedia({ onTexture } = {}) {
         readyState: video.readyState,
         uploads,
         rvfcCount,
-        intentionallyPaused,
       };
     },
 
-    /** Perf guardrail lever: drop to stills, keep the layout intact. */
-    pauseToPoster() {
-      if (state !== "video" || !poster) return false;
-      intentionallyPaused = true;
-      video.pause();
-      publish(poster, "poster");
-      return true;
-    },
 
-    /** Back to video after a pauseToPoster(), or a manual retry once
-     *  a session has started and a decoder is available. */
-    async resumeVideo() {
-      if (state === "video") return false;
-      if (!video.src) return false;
-      intentionallyPaused = false;
-      const ok = await attemptPlay();
-      if (ok && videoTexture) publish(videoTexture, "video");
-      return ok;
-    },
 
     dispose() {
       if (watchdog) clearInterval(watchdog);

@@ -9,28 +9,40 @@
    Framebuffer scale can't change mid-session, so the levers are
    foveation first, then the atlas video.
 
-   The guardrail's thresholds are RELATIVE to the cadence the device
-   is measured to actually deliver.
-
-   Three ways of getting this wrong have shipped, each ending with a
-   black gallery on a healthy phone:
+   The guardrail no longer switches the atlas video off. That lever
+   misjudged a healthy phone four separate times, each ending with a
+   frozen gallery, and was never once observed to help:
 
      1. An absolute 12 ms constant tuned for 72 fps, which quietly
         asked "slower than a Quest?" rather than "failing to keep up?"
      2. XRSession.frameRate as the reference — on Android that is the
-        panel's refresh rate, not the rate WebXR AR delivers at.
+        panel's refresh rate, not the rate WebXR AR delivers at (and
+        on the reporting phone it was not exposed at all).
      3. A baseline taken as a low percentile of individual frame times
-        while the test was a window mean. Different statistics, so on
-        a device with uneven delivery the test exceeded the reference
+        while the test was a window mean — different statistics, so on
+        Android's uneven delivery the test exceeded the reference
         unconditionally.
+     4. A baseline taken as the fastest warm-up window, which locked
+        onto the 60 fps the session briefly runs at before ARCore
+        settles it to 30, making the settled rate look like a 2x
+        regression.
 
-   Hence: measured, never reported; and the baseline is the same
-   statistic as the thing being judged. frameRate is read for the
-   debug readout and nothing else.
+   Every one of those is a different way of guessing a number that no
+   API will tell us and that legitimately changes mid-session. The
+   conclusion is that the premise was wrong, not the tuning: a
+   heuristic with a destructive action and no way to be sure should
+   not have the destructive action. Foveation still steps up — it is
+   free and reversible — and the readings feed the debug panel.
+
+   What remains is deliberately a DEVIATION detector, not an absolute
+   one: the reference is a rolling median of recent windows, so a
+   sustained change in cadence becomes the new normal instead of a
+   permanent accusation.
    ========================================================= */
 
 const WINDOW = 90; // frames in the rolling average
-const WARMUP_WINDOWS = 4; // no judgement while startup costs settle
+const HISTORY = 12; // window averages kept for the rolling reference
+const MIN_HISTORY = 4; // nothing is judged before this much settles
 
 /* Plausible bounds for a measured frame interval, so a pathological
    startup can never install a nonsense baseline. 6ms = 165fps,
@@ -51,34 +63,26 @@ const REF_MAX_MS = 45;
  * bar for the destructive lever is the device running at half its own
  * measured pace.
  */
-export function frameBudget(refMs, level = 0) {
-  return {
-    degradeMs: refMs * (level >= 1 ? 2.0 : 1.5),
-    recoverMs: refMs * 1.2,
-  };
+export function frameBudget(refMs) {
+  return { degradeMs: refMs * 1.5, recoverMs: refMs * 1.2 };
 }
 
 /**
- * The baseline: the best WINDOW AVERAGE the device managed while
- * warming up.
+ * The reference: the median of recent window averages.
  *
- * The statistic has to match the one being judged, and that is what
- * went wrong before. The reference was the 25th percentile of
- * individual frame times while the test was a window mean. On a
- * device that delivers frames unevenly — bursts of fast frames with
- * long waits between, which is what Android WebXR AR does — the mean
- * sits far above the 25th percentile no matter how healthy the
- * device is, so the comparison degraded unconditionally. Measured on
- * the phone: p25 of 11.0 ms against a mean of 33.3 ms, a ratio of
- * three, on hardware doing exactly what it should.
- *
- * Taking the minimum across warm-up windows rather than the median
- * discounts the startup window, where texture uploads and shader
- * compiles land, without needing to guess how long startup takes.
+ * Same statistic as the thing being judged, and rolling rather than
+ * fixed. A fixed baseline has to answer "what is this device capable
+ * of", which nothing can tell us and which changes mid-session — a
+ * WebXR AR session on Android runs at 60 fps until ARCore settles it
+ * to 30. A rolling median simply asks "is this window unlike the
+ * recent past", so that transition moves the reference instead of
+ * being read as a permanent 2x regression.
  */
 export function baselineFrom(windowAverages) {
   if (!windowAverages.length) return null;
-  return Math.min(...windowAverages);
+  const sorted = [...windowAverages].sort((a, b) => a - b);
+  const mid = sorted.length >> 1;
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
 export function clampRef(ms) {
@@ -89,7 +93,7 @@ export function clampRef(ms) {
  * The guardrail as a plain state machine, independent of three.js and
  * of any clock, so it can be driven frame by frame in a test.
  */
-export function createFrameMonitor({ maxLevel = 2 } = {}) {
+export function createFrameMonitor({ maxLevel = 1 } = {}) {
   let acc = 0;
   let count = 0;
   let windows = 0;
@@ -97,7 +101,7 @@ export function createFrameMonitor({ maxLevel = 2 } = {}) {
   let cooldown = 0;
   let refMs = null;
   let reportedRate = null;
-  const warmupAverages = [];
+  const history = [];
 
   return {
     get level() {
@@ -150,15 +154,12 @@ export function createFrameMonitor({ maxLevel = 2 } = {}) {
       count = 0;
       windows++;
 
-      if (windows <= WARMUP_WINDOWS) {
-        warmupAverages.push(avgMs);
-        if (windows === WARMUP_WINDOWS) {
-          refMs = clampRef(baselineFrom(warmupAverages));
-        }
-        return null;
-      }
+      history.push(avgMs);
+      if (history.length > HISTORY) history.shift();
+      if (history.length < MIN_HISTORY) return null;
+      refMs = clampRef(baselineFrom(history));
 
-      const { degradeMs, recoverMs } = frameBudget(refMs, level);
+      const { degradeMs, recoverMs } = frameBudget(refMs);
 
       if (cooldown > 0) {
         cooldown--;

@@ -47,32 +47,46 @@ for (const fps of [30, 60, 72, 90, 120]) {
   );
 }
 
-console.log("\n2. Falling below an established baseline must still degrade");
-console.log("   (warm up at native first — a device slow from frame 0 is");
-console.log("    indistinguishable from one whose native rate is that)");
+console.log("\n2. A sudden drop is still noticed");
 for (const fps of [30, 60, 72, 90]) {
   const m = createFrameMonitor();
-  feed(m, fps, 10); // establish the baseline at native
-  const events = feed(m, fps, 30, 2); // then halve the rate
-  const degrades = events.filter((e) => e.action === "degrade");
-  // Level 1 is the correct response to exactly half rate; level 2
-  // (which kills the video) is reserved for worse — see section 8.
+  feed(m, fps, 15);
+  const events = feed(m, fps, 6, 2.5); // brief, sharp slowdown
   ok(
-    degrades.length >= 1 && m.level >= 1,
-    `${String(fps).padStart(3)}fps drops to half`,
+    events.filter((e) => e.action === "degrade").length >= 1,
+    `${String(fps).padStart(3)}fps hits a slow patch`,
     `ref=${m.referenceMs.toFixed(1)}ms level=${m.level}`
   );
 }
 
-console.log("\n3. Warm-up spikes must not poison the baseline");
+console.log("\n2b. A SUSTAINED rate change becomes the new normal");
+console.log("    (Android runs 60fps until ARCore settles it to 30 — locking");
+console.log("     onto the fast start made the settled rate look like failure)");
+{
+  const m = createFrameMonitor();
+  feed(m, 60, 10);        // the brief fast start
+  feed(m, 30, 60);        // the rate it actually settles at
+  ok(
+    m.level === 0,
+    "60fps start then sustained 30fps",
+    `ref=${m.referenceMs.toFixed(1)}ms level=${m.level}`
+  );
+  ok(
+    Math.abs(m.referenceMs - 1000 / 30) < 2,
+    "reference follows the settled rate",
+    `ref=${m.referenceMs.toFixed(1)}ms`
+  );
+}
+
+console.log("\n3. Startup spikes must not leave a lasting mark");
 for (const [label, spikeFrames] of [["2s", 120], ["1s", 60], ["none", 0]]) {
   const m = createFrameMonitor();
   feed(m, 60, 40, 1, spikeFrames);
   const expected = 1000 / 60;
   ok(
-    Math.abs(m.referenceMs - expected) < 1.0,
+    Math.abs(m.referenceMs - expected) < 1.0 && m.level === 0,
     `60fps with ${label} of 4x startup spikes`,
-    `ref=${m.referenceMs.toFixed(1)}ms expected≈${expected.toFixed(1)}ms`
+    `ref=${m.referenceMs.toFixed(1)}ms level=${m.level}`
   );
 }
 
@@ -98,15 +112,11 @@ console.log("    trusting that paused the atlas on hardware running perfectly)")
 console.log("\n5. Degrade then recover");
 {
   const m = createFrameMonitor();
-  feed(m, 72, 20);
-  feed(m, 72, 40, 3); // dire enough to reach the bottom
-  const dropped = m.level;
+  feed(m, 72, 15);
+  const events = feed(m, 72, 6, 2.5);
+  const dropped = events.some((e) => e.action === "degrade");
   feed(m, 72, 40);
-  ok(
-    dropped === 2 && m.level === 0,
-    "72fps: down to 2, back to 0",
-    `dropped=${dropped} now=${m.level}`
-  );
+  ok(dropped && m.level === 0, "72fps: degrades then returns to 0", `now=${m.level}`);
 }
 
 console.log("\n6. Long stalls are ignored, not treated as slowness");
@@ -145,20 +155,20 @@ for (const [label, pattern] of [
   );
 }
 
-console.log("\n8. Killing the video needs a dire case, not a marginal one");
+console.log("\n8. The guardrail can never stop playback");
 {
   const m = createFrameMonitor();
-  feed(m, 60, 20);                       // baseline at 60fps
-  feed(m, 60, 40, 1.7);                  // 1.7x slower: bad, not dire
-  ok(m.level === 1, "1.7x slower reaches level 1 only", `level=${m.level}`);
-  const m2 = createFrameMonitor();
-  feed(m2, 60, 20);
-  feed(m2, 60, 40, 3);                   // 3x slower: dire
-  ok(m2.level === 2, "3x slower reaches level 2", `level=${m2.level}`);
+  feed(m, 60, 15);
+  feed(m, 60, 60, 8); // catastrophically slow, sustained
+  ok(
+    m.level <= 1,
+    "never escalates past foveation, however bad it gets",
+    `level=${m.level}`
+  );
 }
 
 console.log("\n9. Helpers");
-ok(baselineFrom([40, 33, 34, 33.5]) === 33, "baseline is the best warm-up window");
+ok(baselineFrom([40, 33, 34, 33.5]) === 33.75, "reference is the median of recent windows");
 ok(clampRef(1) === 6 && clampRef(999) === 45, "clampRef bounds");
 for (const fps of [30, 60, 90]) {
   const b = frameBudget(1000 / fps);

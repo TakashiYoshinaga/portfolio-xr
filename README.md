@@ -72,18 +72,23 @@ no software video decode, so exceeding the MediaCodec ceiling produces black
 quads rather than dropped frames. Concurrent decoders are capped at two: the
 atlas plus one hero clip.
 
-**The perf guardrail measures, and compares like with like.** Its job is to
-notice the app failing to hit the device's own cadence, and getting the
-reference wrong switched the atlas video off on healthy hardware three separate
-times: an absolute 12 ms constant tuned for 72 fps (really "slower than a
-Quest?"); `XRSession.frameRate`, which on Android reports the 90 Hz panel while
-WebXR AR delivers at the camera's 30 fps; and a baseline taken as a low
-percentile of frame times while the test was a window mean, which on Android's
-bursty delivery exceeded the reference unconditionally. So: measured, never
-reported, and the baseline is the same statistic as the thing being judged. The
-step that actually kills the video needs the device at half its own measured
-pace. `tools/loop-check.mjs` pins all three traps down as regressions,
-including uneven delivery — which no steady synthetic sequence can catch.
+**The perf guardrail cannot stop playback.** It used to switch the atlas video
+off when it decided the device was struggling, and it decided that wrongly about
+a healthy phone four times running — once per attempt to guess the device's true
+frame rate. An absolute 12 ms constant tuned for 72 fps. `XRSession.frameRate`,
+which on Android reports the panel's refresh rate rather than the rate WebXR AR
+delivers at, where it is exposed at all. A low percentile of frame times
+compared against a window mean, which on Android's bursty delivery exceeds the
+reference unconditionally. The fastest warm-up window, which locks onto the
+60 fps a session briefly runs at before ARCore settles it to 30.
+
+No API will tell you that number and it legitimately changes mid-session, so the
+premise was wrong rather than the tuning. What remains is a deviation detector —
+a rolling median of recent windows, so a sustained change becomes the new normal
+— and its only action is foveation, which is free and reversible.
+`tools/loop-check.mjs` keeps all four traps as regressions, including uneven
+delivery and a sustained rate change, neither of which a steady synthetic
+sequence can catch.
 
 **Video textures upload on our own schedule.** three.js's `VideoTexture` drives
 `needsUpdate` purely from `requestVideoFrameCallback` when the browser has it,

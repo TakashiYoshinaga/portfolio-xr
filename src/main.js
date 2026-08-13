@@ -238,20 +238,17 @@ function startLoop() {
         `[perf] ${avgMs.toFixed(1)}ms avg vs ${refMs.toFixed(1)}ms native ` +
           `(${nativeFps.toFixed(0)}fps) — quality level ${level}`
       );
-      // Level 1 is heavier foveation (handled in Loop). Level 2 gives
-      // up the atlas decode, which is the last big lever available
-      // mid-session — framebuffer scale cannot be changed once
-      // presenting has started.
-      if (level >= 2 && atlas?.pauseToPoster()) {
-        console.warn("[perf] atlas video paused — thumbnails are stills");
-      }
+      // Deliberately no media lever here. Switching the atlas video
+      // off used to be the level-2 response, and it misjudged healthy
+      // hardware four times over without once being observed to help.
+      // Foveation (handled in Loop) is free and reversible; this is
+      // now reporting only.
     },
     onRecover({ level, avgMs, refMs, nativeFps }) {
       console.info(
         `[perf] recovered: ${avgMs.toFixed(1)}ms avg vs ${refMs.toFixed(1)}ms ` +
           `native (${nativeFps.toFixed(0)}fps) — quality level ${level}`
       );
-      if (level < 2) atlas?.resumeVideo();
     },
   });
 }

@@ -49,7 +49,7 @@ export function createDebugHud() {
   mesh.renderOrder = 999;
 
   let elapsed = 0;
-  let sinceRepaint = 1;
+  let lastRealPaint = 0;
   let frames = 0;
   let fpsWindow = 0;
   let fps = 0;
@@ -110,9 +110,15 @@ export function createDebugHud() {
         fpsWindow = 0;
       }
 
-      sinceRepaint += dt;
-      if (sinceRepaint < 1 / REPAINT_HZ) return;
-      sinceRepaint = 0;
+      // Judged against the wall clock, not accumulated dt. "currentTime
+      // has not moved" only means something when real time has passed;
+      // driven frame-by-frame it is always true, and a diagnostic that
+      // cries wolf is worse than none.
+      const now = performance.now();
+      if (now - lastRealPaint < 1000 / REPAINT_HZ) return;
+      const realElapsed = now - lastRealPaint;
+      lastRealPaint = now;
+      const canJudgeMotion = realElapsed >= 150;
 
       const s = atlas.stats;
       const good = COLOR.accent;
@@ -123,15 +129,15 @@ export function createDebugHud() {
       let verdict = "OK play + upload";
       let verdictColour = good;
       if (s.state !== "video") {
-        verdict = s.intentionallyPaused ? "PAUSED by perf" : "POSTER (no video)";
+        verdict = "POSTER (no video)";
         verdictColour = warn;
       } else if (s.paused) {
         verdict = "VIDEO PAUSED";
         verdictColour = bad;
-      } else if (this._lastTime === s.currentTime) {
+      } else if (canJudgeMotion && this._lastTime === s.currentTime) {
         verdict = "VIDEO STALLED";
         verdictColour = bad;
-      } else if (this._lastUploads === s.uploads) {
+      } else if (canJudgeMotion && this._lastUploads === s.uploads) {
         verdict = "TEXTURE FROZEN";
         verdictColour = bad;
       }
